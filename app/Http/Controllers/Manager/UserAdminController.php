@@ -12,46 +12,35 @@ class UserAdminController extends Controller
     /** List staff & customers with search + pagination */
     public function index(Request $request)
     {
-        $users = User::query()
-            ->whereIn('role', ['staff', 'customer'])
-            ->when(
-                $request->search,
-                fn($q, $s) => $q->where(fn($w) => $w
-                    ->where('username', 'like', "%{$s}%")
-                    ->orWhere('email', 'like', "%{$s}%")
-                    ->orWhere('name', 'like', "%{$s}%"))
-            )
-            ->latest()
-            ->paginate(12);
+        // Inputs (with sane defaults)
+        $search = trim((string) $request->input('search', ''));
+        $role   = $request->input('role');               // staff|customer|null
+        $sort   = $request->input('sort', 'id');         // id|name
+        $dir    = $request->input('dir', 'desc');        // asc|desc
 
-        return view('manager.users.index', compact('users'));
-    }
+        // Whitelist to prevent SQL injection
+        $sort = in_array($sort, ['id','name'], true) ? $sort : 'id';
+        $dir  = $dir === 'asc' ? 'asc' : 'desc';
 
-    /** Show create form */
-    public function create()
-    {
-        return view('manager.users.create');
-    }
+        $q = \App\Models\User::query()->whereIn('role', ['staff','customer']);
 
-    /** Create staff/customer */
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'role'                  => ['required', 'in:staff,customer'],
-            'name'                  => ['required', 'string', 'max:100'],
-            'username'              => ['required', 'alpha_num', 'min:4', 'max:30', 'unique:users,username'],
-            'email'                 => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password'              => ['required', 'confirmed', Password::min(8)->letters()->numbers()->mixedCase()],
-            'phone'                 => ['nullable', 'string', 'max:20'],
-            'address'               => ['nullable', 'string', 'max:255'],
-            'points'                => ['nullable', 'integer', 'min:0'],
-        ]);
+        if (in_array($role, ['staff','customer'], true)) {
+            $q->where('role', $role);
+        }
 
-        User::create($data); // password hashed by mutator/cast
+        if ($search !== '') {
+            $q->where(function ($w) use ($search) {
+                $w->where('username','like',"%{$search}%")
+                ->orWhere('email','like',"%{$search}%")
+                ->orWhere('name','like',"%{$search}%");
+            });
+        }
 
-        return redirect()
-            ->route('manager.users.index')
-            ->with('flash.success', 'User created.');
+        $q->orderBy($sort, $dir)->orderBy('id','desc'); // deterministic secondary sort
+
+        $users = $q->paginate(12)->withQueryString();   // keep filters on pagination links
+
+        return view('manager.users.index', compact('users','search','role','sort','dir'));
     }
 
     /** Show edit form */
