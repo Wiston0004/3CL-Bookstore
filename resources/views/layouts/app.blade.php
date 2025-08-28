@@ -73,14 +73,21 @@
 
   <nav class="row">
     @auth
-      <a href="{{ route('profile.edit') }}" class="pill">Profile</a>
       @if(auth()->user()->role === 'manager')
+        {{-- Manager: ONLY Manage Users + Logout --}}
         <a href="{{ route('manager.users.index') }}" class="pill">Manage Users</a>
+        <form method="POST" action="{{ route('logout') }}">
+          @csrf
+          <button class="btn">Logout</button>
+        </form>
+      @else
+        {{-- Staff/Customer: show Profile (and manager link only if you want) --}}
+        <a href="{{ route('profile.edit') }}" class="pill">Profile</a>
+        <form method="POST" action="{{ route('logout') }}">
+          @csrf
+          <button class="btn">Logout</button>
+        </form>
       @endif
-      <form method="POST" action="{{ route('logout') }}">
-        @csrf
-        <button class="btn">Logout</button>
-      </form>
     @else
       <a href="{{ route('register') }}" class="btn success">Register</a>
       <a href="{{ route('login.manager') }}" class="pill">Manager</a>
