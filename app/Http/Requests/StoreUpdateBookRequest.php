@@ -24,12 +24,13 @@ class StoreUpdateBookRequest extends FormRequest
             'title'          => ['required','string','max:255'],
             'author'         => ['nullable','string','max:255'],
             'isbn'           => ['nullable','string','max:50','unique:books,isbn,'.($id ?? 'NULL').',id'],
+            'genre'    => ['nullable','string','max:100'],
             'description'    => ['nullable','string'],
             'price'          => ['nullable','numeric','min:0'],
             'stock'          => ['nullable','integer','min:0'],
             'cover'          => ['nullable','image','mimes:jpg,jpeg,png,webp','max:4096'],
-            'category_ids'   => ['nullable','array'],
-            'category_ids.*' => ['integer','exists:categories,id'],
+            // ✅ single category from the dropdown
+            'category_id' => ['nullable','integer','exists:categories,id'],
             'tag_ids'        => ['nullable','array'],
             'tag_ids.*'      => ['integer','exists:tags,id'],
         ];

@@ -3,57 +3,76 @@
 namespace App\Services;
 
 use App\Models\Book;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class CatalogFacade
 {
-    /**
-     * Create or update a book, manage cover, categories, tags.
-     * Pass 'id' to update.
-     */
     public function createBook(array $data): Book
     {
         return DB::transaction(function () use ($data) {
-            $book = isset($data['id']) ? Book::findOrFail($data['id']) : new Book();
+            $categoryId = $data['category_id'] ?? null;
+            $cover      = $data['cover_image'] ?? null;
 
-            // Map price float to price_cents if provided
-            if (isset($data['price'])) {
-                $book->price = (float) $data['price'];
-            }
+            // Strip non-columns before mass-assign
+            unset($data['category_id'], $data['cover_image'], $data['tag_ids']);
 
-            $book->fill([
-                'title'       => $data['title'],
-                'author'      => $data['author'] ?? null,
-                'isbn'        => $data['isbn'] ?? null,
-                'description' => $data['description'] ?? null,
-            ]);
+            $book = Book::create($data);
 
-            if (isset($data['stock'])) {
-                $book->stock = (int) $data['stock'];
-            }
+            // Category (single)
+            $book->categories()->sync($categoryId ? [$categoryId] : []);
 
-            // Handle cover upload (if coming as 'cover' file or 'cover_path' string)
-            if (($data['cover'] ?? null) instanceof UploadedFile) {
-                if ($book->cover_path && Storage::disk('public')->exists($book->cover_path)) {
-                    Storage::disk('public')->delete($book->cover_path);
-                }
-                $path = $data['cover']->store('covers', 'public');
-                $book->cover_path = $path;
-            }
-
-            $book->save();
-
-            // Sync categories & tags if provided
-            if (isset($data['category_ids'])) {
-                $book->categories()->sync($data['category_ids']);
-            }
-            if (isset($data['tag_ids'])) {
+            // Tags (optional)
+            if (!empty($data['tag_ids'])) {
                 $book->tags()->sync($data['tag_ids']);
             }
 
-            return $book->fresh(['categories','tags']);
+            // Cover upload
+            if ($cover) {
+                $path = $cover->store('books', 'public');
+                $book->update(['cover_image_path' => $path]);
+            }
+
+            // Initial stock movement
+            if (($book->stock ?? 0) > 0) {
+                $book->stockMovements()->create([
+                    'user_id'         => auth()->id(),
+                    'type'            => 'restock',
+                    'quantity_change' => $book->stock,
+                    'reason'          => 'initial load',
+                ]);
+            }
+
+            return $book;
+        });
+    }
+
+    public function updateBook(Book $book, array $data): Book
+    {
+        return DB::transaction(function () use ($book, $data) {
+            $categoryId = $data['category_id'] ?? null;
+            $cover      = $data['cover_image'] ?? null;
+
+            unset($data['category_id'], $data['cover_image'], $data['tag_ids']);
+
+            $book->update($data);
+            $book->categories()->sync($categoryId ? [$categoryId] : []);
+
+            if (!empty($data['tag_ids'])) {
+                $book->tags()->sync($data['tag_ids']);
+            } else {
+                $book->tags()->sync([]);
+            }
+
+            if ($cover) {
+                if ($book->cover_image_path && Storage::disk('public')->exists($book->cover_image_path)) {
+                    Storage::disk('public')->delete($book->cover_image_path);
+                }
+                $path = $cover->store('books', 'public');
+                $book->update(['cover_image_path' => $path]);
+            }
+
+            return $book;
         });
     }
 }

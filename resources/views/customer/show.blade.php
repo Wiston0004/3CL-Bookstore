@@ -1,58 +1,83 @@
 @extends('layouts.app')
 
-@section('header')
-  <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $book->title }}</h2>
-@endsection
+@section('title', $book->title.' — Details')
 
 @section('content')
-<div class="py-6">
-  <div class="max-w-5xl mx-auto sm:px-6 lg:px-8 space-y-6">
+  <div class="card">
+    <div class="row">
+      <h2 style="margin:0">📖 {{ $book->title }}</h2>
+      <a href="{{ route('customer.index') }}" class="btn right">Back to List</a>
+    </div>
 
-    <div class="bg-white rounded shadow p-6">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          @if($book->cover_path)
-            <img src="{{ asset('storage/'.$book->cover_path) }}" class="w-full h-auto rounded">
-          @endif
+    <div class="grid grid-2 mt">
+      {{-- Left: Cover --}}
+      <div class="center" style="background:#0f1533;border:1px solid #1c2346;border-radius:12px;padding:16px;min-height:360px;display:flex;align-items:center;justify-content:center;">
+        @if($book->cover_image_url)
+          <img src="{{ $book->cover_image_url }}" alt="Cover" style="max-height:340px;max-width:100%;object-fit:contain;">
+        @else
+          <span class="muted">No Cover</span>
+        @endif
+      </div>
+
+      {{-- Right: Info --}}
+      <div>
+        <div class="row">
+          <span class="pill" style="background:{{ $book->stock>0 ? '#0f2a1a' : '#2a1212' }};border-color:{{ $book->stock>0 ? '#184a31' : '#4a1c1c' }}">
+            {{ $book->stock>0 ? 'In stock ('.$book->stock.')' : 'Out of stock' }}
+          </span>
+          <span class="pill">ISBN: {{ $book->isbn }}</span>
+          <span class="pill">RM {{ number_format($book->price,2) }}</span>
         </div>
-        <div class="md:col-span-2 space-y-2">
-          <div class="text-2xl font-semibold">{{ $book->title }}</div>
-          <div class="text-gray-600">By {{ $book->author ?? 'Unknown' }}</div>
-          <div class="text-lg">RM {{ number_format($book->price,2) }}</div>
-          <div class="text-sm text-gray-600">Stock: {{ $book->stock }}</div>
-          <p class="mt-3">{{ $book->description }}</p>
+
+        <div class="grid grid-2 mt">
+          <div>
+            <label>Author</label>
+            <div>{{ $book->author }}</div>
+          </div>
+          <div>
+            <label>Category</label>
+            <div>{{ $book->categories->first()->name ?? '-' }}</div>
+          </div>
+          <div>
+            <label>Genre</label>
+            <div>{{ $book->genre ?? '-' }}</div>
+          </div>
+        </div>
+
+        @if(!empty($book->description))
+          <div class="mt">
+            <label>Description</label>
+            <p style="margin:0;white-space:pre-line">{{ $book->description }}</p>
+          </div>
+        @endif
+
+        <div class="row mt">
+          <button type="button" class="btn primary"
+                  @if($book->stock<=0) disabled @endif
+                  onclick="this.innerText='Added!'; this.classList.remove('primary'); this.classList.add('success'); alert('“{{ addslashes($book->title) }}” added to cart (demo only).');">
+            Add to Cart
+          </button>
+          <a href="{{ route('customer.index') }}" class="btn">Back</a>
         </div>
       </div>
     </div>
-
-    <div class="bg-white rounded shadow p-6">
-      <h3 class="font-semibold mb-3">Reviews</h3>
-
-      @auth
-        <form action="{{ route('reviews.store',$book) }}" method="POST" class="mb-4 flex flex-col md:flex-row gap-3">
-          @csrf
-          <select name="rating" class="border rounded px-3 py-2">
-            @for($i=5;$i>=1;$i--) <option value="{{ $i }}">{{ $i }} ★</option> @endfor
-          </select>
-          <input name="content" class="border rounded px-3 py-2 flex-1" placeholder="Say something...">
-          <button class="px-4 py-2 bg-indigo-600 text-white rounded">Post</button>
-        </form>
-      @endauth
-
-      @forelse($book->reviews as $r)
-        <div class="border-t py-3">
-          <div class="flex items-center justify-between">
-            <div class="font-medium">{{ $r->user?->name ?? 'User' }}</div>
-            <div class="text-amber-600">{{ str_repeat('★', $r->rating) }}</div>
-          </div>
-          <div class="text-sm text-gray-700">{{ $r->content }}</div>
-          <div class="text-xs text-gray-500">{{ $r->created_at->diffForHumans() }}</div>
-        </div>
-      @empty
-        <div class="text-gray-500">No reviews yet.</div>
-      @endforelse
-    </div>
-
   </div>
-</div>
+
+  {{-- Optional read-only reviews --}}
+  @if($book->relationLoaded('reviews') && $book->reviews->count())
+    <div class="card mt">
+      <h3 style="margin-top:0">Reviews</h3>
+      <div class="grid">
+        @foreach($book->reviews as $r)
+          <div class="card" style="padding:14px">
+            <div class="row">
+              <strong>{{ $r->rating }}/5</strong>
+              <span class="muted">{{ $r->created_at->format('d M Y') }}</span>
+            </div>
+            <div class="mt">{{ $r->content }}</div>
+          </div>
+        @endforeach
+      </div>
+    </div>
+  @endif
 @endsection

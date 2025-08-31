@@ -1,113 +1,171 @@
+{{-- resources/views/books/edit.blade.php --}}
 @extends('layouts.app')
 
-@section('header')
-  <h2 class="font-semibold text-xl text-gray-800 leading-tight">Edit Book — {{ $book->title }}</h2>
-@endsection
+@section('title','Edit Book')
 
 @section('content')
-<div class="py-6">
-  <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+@php
+  $selectedCatId = old('category_id', $book->categories->first()->id ?? '');
+@endphp
 
-    @if(session('ok'))  <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">{{ session('ok') }}</div> @endif
-    @if(session('err')) <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">{{ session('err') }}</div> @endif
-
-    <div class="bg-white shadow rounded p-6">
-      <form action="{{ route('books.update',$book) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-        @csrf @method('PUT')
-
-        <div>
-          <label class="block text-sm font-medium mb-1">Title</label>
-          <input name="title" value="{{ old('title', $book->title) }}" class="w-full border rounded px-3 py-2" required>
-          @error('title') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">Author</label>
-            <input name="author" value="{{ old('author', $book->author) }}" class="w-full border rounded px-3 py-2">
-            @error('author') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">ISBN</label>
-            <input name="isbn" value="{{ old('isbn',$book->isbn) }}" class="w-full border rounded px-3 py-2">
-            @error('isbn') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">Price (MYR)</label>
-            <input type="number" step="0.01" name="price" value="{{ old('price', $book->price) }}" class="w-full border rounded px-3 py-2">
-            @error('price') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Stock</label>
-            <input type="number" name="stock" value="{{ old('stock', $book->stock) }}" class="w-full border rounded px-3 py-2">
-            @error('stock') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1">Description</label>
-          <textarea name="description" class="w-full border rounded px-3 py-2" rows="4">{{ old('description',$book->description) }}</textarea>
-          @error('description') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">Cover</label>
-            <input type="file" name="cover" accept="image/*" class="block w-full text-sm">
-            @error('cover') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
-            @if($book->cover_path)
-              <div class="mt-2"><img src="{{ asset('storage/'.$book->cover_path) }}" class="w-28 h-36 object-cover rounded"></div>
-            @endif
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Categories</label>
-            <div class="grid grid-cols-2 gap-2">
-              @foreach($categories as $c)
-                <label class="flex items-center gap-2">
-                  <input type="checkbox" name="category_ids[]" value="{{ $c->id }}" {{ $book->categories->pluck('id')->contains($c->id) ? 'checked' : '' }}>
-                  <span>{{ $c->name }}</span>
-                </label>
-              @endforeach
-            </div>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-3">
-          <a href="{{ route('books.index') }}" class="px-4 py-2 border rounded">Back</a>
-          <button class="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>
-        </div>
-      </form>
+<div class="grid" style="gap:16px">
+  {{-- Page header --}}
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h2 style="margin:0">✏️ Edit Book</h2>
+      <div class="row" style="gap:8px">
+        <a href="{{ route('books.index') }}" class="pill">← Back to list</a>
+        <a href="{{ route('books.show',$book) }}" class="pill">View</a>
+      </div>
     </div>
+  </div>
 
-    {{-- Stock Adjustment --}}
-    <div class="bg-white shadow rounded p-6">
-      <h3 class="font-semibold mb-2">Adjust Stock (Current: {{ $book->stock }})</h3>
-      <form action="{{ route('inventory.adjust', $book) }}" method="POST" class="flex flex-col md:flex-row gap-3 items-end">
-        @csrf
-        <div>
-          <label class="block text-sm">Type</label>
-          <select name="type" class="border rounded px-3 py-2">
-            <option value="restock">Restock (+)</option>
-            <option value="sale">Sale (-)</option>
-            <option value="adjustment">Adjustment (+/-)</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm">Quantity</label>
-          <input type="number" name="quantity" class="border rounded px-3 py-2" required>
-        </div>
-        <div class="flex-1">
-          <label class="block text-sm">Reason (optional)</label>
-          <input name="reason" class="border rounded px-3 py-2 w-full" placeholder="Supplier delivery, shrinkage, audit correction">
-        </div>
-        <button class="px-4 py-2 bg-emerald-600 text-white rounded">Update</button>
-        <a class="px-3 py-2 border rounded" href="{{ route('inventory.history',$book) }}">View History</a>
-      </form>
+  {{-- Errors --}}
+  @if ($errors->any())
+    <div class="card" style="border-color:#3e1d1d;background:linear-gradient(180deg,#1a0e0e,#241012)">
+      <div class="row" style="gap:8px;align-items:center;margin-bottom:6px">
+        <strong>Error</strong>
+        <span class="muted">Please fix the following and try again</span>
+      </div>
+      <ul style="margin:0;padding-left:18px">
+        @foreach ($errors->all() as $e)
+          <li>{{ $e }}</li>
+        @endforeach
+      </ul>
     </div>
+  @endif
 
+  {{-- Form --}}
+  <div class="card">
+    <form action="{{ route('books.update',$book) }}" method="POST" enctype="multipart/form-data"
+          class="grid" style="gap:14px" id="editForm">
+      @csrf @method('PUT')
+
+      <div>
+        <label>Title <span class="muted">(required)</span></label>
+        <input name="title" value="{{ old('title',$book->title) }}" required class="input" placeholder="Book title">
+      </div>
+
+      <div class="grid grid-2">
+        <div>
+          <label>Author <span class="muted">(required)</span></label>
+          <input name="author" value="{{ old('author',$book->author) }}" required class="input" placeholder="Author name">
+        </div>
+        <div>
+          <label>ISBN <span class="muted">(required)</span></label>
+          <input name="isbn" value="{{ old('isbn',$book->isbn) }}" required class="input" placeholder="ISBN">
+        </div>
+      </div>
+
+      <div class="grid grid-3">
+        <div>
+          <label>Genre</label>
+          <input name="genre" value="{{ old('genre',$book->genre) }}" class="input" placeholder="Genre">
+        </div>
+        <div>
+          <label>Price (RM) <span class="muted">(required)</span></label>
+          <input type="number" step="0.01" min="0" name="price" value="{{ old('price',$book->price) }}" required class="input" id="price">
+        </div>
+        <div>
+          <label>Stock <span class="muted">(required)</span></label>
+          <input type="number" min="0" name="stock" value="{{ old('stock',$book->stock) }}" required class="input">
+        </div>
+      </div>
+
+      {{-- Category (single-select) --}}
+      <div>
+        <label>Category</label>
+        <select name="category_id" class="input">
+          <option value="">-- Select a Category --</option>
+          @foreach($categories as $cat)
+            <option value="{{ $cat->id }}" @selected($selectedCatId == $cat->id)>{{ $cat->name }}</option>
+          @endforeach
+        </select>
+      </div>
+
+      <div>
+        <label>Description</label>
+        <textarea name="description" rows="4" class="input" placeholder="Short summary, edition notes, etc.">{{ old('description',$book->description) }}</textarea>
+      </div>
+
+      {{-- Cover image: current + replace + optional remove --}}
+      <div class="grid" style="gap:10px">
+        <label>Cover Image</label>
+
+        @if($book->cover_image_url)
+          <div class="row" style="gap:10px;align-items:center">
+            <img src="{{ $book->cover_image_url }}" alt="Current cover"
+                 style="height:100px;border-radius:10px;border:1px solid #1c2346">
+            <span class="muted">Current</span>
+          </div>
+        @else
+          <span class="muted">No current cover</span>
+        @endif
+
+        <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap">
+          <input type="file" name="cover_image" accept=".jpg,.jpeg,.png,.webp" id="coverInput" class="input" style="padding:10px">
+          <span class="muted">Max 3MB • JPG / PNG / WebP</span>
+          <label class="row" style="gap:8px;align-items:center">
+            <input type="checkbox" name="remove_cover" value="1">
+            <span class="muted">Remove existing cover</span>
+          </label>
+        </div>
+
+        <div id="coverPreviewWrap" class="mt" style="margin-top:10px;display:none">
+          <div class="row" style="gap:10px;align-items:center">
+            <img id="coverPreview" alt="New preview"
+                 style="height:120px;border-radius:10px;border:1px solid #1c2346">
+            <span id="coverInfo" class="muted"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mt" style="justify-content:flex-end;gap:8px">
+        <a href="{{ url()->previous() }}" class="pill">Cancel</a>
+        <button class="btn primary">Save Changes</button>
+      </div>
+    </form>
   </div>
 </div>
+
+{{-- Helpers: price format, image preview, unsaved guard --}}
+<script>
+  // format price to 2dp on blur
+  document.getElementById('price')?.addEventListener('blur', e => {
+    const v = parseFloat(e.target.value);
+    if (!isNaN(v)) e.target.value = v.toFixed(2);
+  });
+
+  // image preview + size guard (3MB)
+  const input = document.getElementById('coverInput');
+  const wrap  = document.getElementById('coverPreviewWrap');
+  const img   = document.getElementById('coverPreview');
+  const info  = document.getElementById('coverInfo');
+
+  input?.addEventListener('change', () => {
+    const f = input.files && input.files[0];
+    if (!f) { wrap.style.display = 'none'; return; }
+    if (f.size > 3 * 1024 * 1024) {
+      alert('Cover image must be ≤ 3MB.');
+      input.value = ''; wrap.style.display = 'none'; return;
+    }
+    const url = URL.createObjectURL(f);
+    img.src = url;
+    info.textContent = `${f.name} — ${(f.size/1024/1024).toFixed(2)} MB`;
+    wrap.style.display = 'block';
+  });
+
+  // unsaved changes guard
+  const form = document.getElementById('editForm');
+  let dirty = false;
+  form.querySelectorAll('input,textarea,select').forEach(el=>{
+    el.addEventListener('change', ()=> dirty = true);
+    el.addEventListener('input',  ()=> dirty = true);
+  });
+  window.addEventListener('beforeunload', (e)=>{
+    if (!dirty) return;
+    e.preventDefault(); e.returnValue = '';
+  });
+  form.addEventListener('submit', ()=> dirty = false);
+</script>
 @endsection

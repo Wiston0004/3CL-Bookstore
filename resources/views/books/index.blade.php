@@ -1,124 +1,132 @@
+{{-- resources/views/books/index.blade.php --}}
 @extends('layouts.app')
 
-@section('header')
-  <h2 class="font-semibold text-xl text-gray-800 leading-tight">📚 Inventory — Books</h2>
-@endsection
+@section('title','Books')
 
 @section('content')
-<div class="py-6">
-  <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
-
-    @if(session('ok'))  <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">{{ session('ok') }}</div> @endif
-    @if(session('err')) <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">{{ session('err') }}</div> @endif
-
-    <div class="flex items-center justify-between">
-      <div class="text-sm text-gray-600">Manage books, adjust stock, filter low/out-of-stock.</div>
-      @can('create', \App\Models\Book::class)
-        <a href="{{ route('books.create') }}" class="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">+ Add Book</a>
-      @endcan
+<div class="card">
+  {{-- Header row --}}
+  <div class="row mb" style="justify-content:space-between; align-items:center;">
+    <div class="row" style="gap:10px; align-items:center;">
+      <h2 style="margin:0;">📚 Books</h2>
+      <span class="pill muted">Total: {{ number_format($books->total()) }}</span>
     </div>
-
-    <form method="get" class="bg-white p-4 rounded shadow grid grid-cols-1 md:grid-cols-5 gap-3" autocomplete="off">
-      <input class="border rounded px-3 py-2" name="search" value="{{ request('search') }}" placeholder="Search title, author, ISBN">
-      <select name="category_id" class="border rounded px-3 py-2">
-        <option value="">All Categories</option>
-        @foreach($categories as $c)
-          <option value="{{ $c->id }}" @selected(request('category_id')==$c->id)>{{ $c->name }}</option>
-        @endforeach
-      </select>
-      <select name="stock" class="border rounded px-3 py-2">
-        <option value="">Stock: All</option>
-        <option value="low" @selected(request('stock')==='low')>Low (&le; 5)</option>
-        <option value="out" @selected(request('stock')==='out')>Out of stock</option>
-      </select>
-      <select name="sort" class="border rounded px-3 py-2">
-        @php $sort = request('sort','updated_at'); @endphp
-        <option value="updated_at" @selected($sort==='updated_at')>Sort: Updated</option>
-        <option value="title" @selected($sort==='title')>Title</option>
-        <option value="id" @selected($sort==='id')>ID</option>
-        <option value="stock" @selected($sort==='stock')>Stock</option>
-      </select>
-      <div class="flex gap-2">
-        <select name="dir" class="border rounded px-3 py-2">
-          @php $dir = request('dir','desc'); @endphp
-          <option value="asc" @selected($dir==='asc')>Asc</option>
-          <option value="desc" @selected($dir==='desc')>Desc</option>
-        </select>
-        <button class="px-4 py-2 bg-indigo-600 text-white rounded">Apply</button>
-        @if(request()->query())
-          <a href="{{ route('books.index') }}" class="px-4 py-2 border rounded">Clear</a>
-        @endif
-      </div>
-    </form>
-
-    <div class="bg-white rounded shadow overflow-hidden">
-      @php
-        $q = request()->except(['page']);
-        $toggleDir = request('dir','desc')==='desc' ? 'asc' : 'desc';
-      @endphp
-
-      @if($books->count() === 0)
-        <div class="p-8 text-center text-gray-500">No books found. Try adjusting filters or add a new book.</div>
-      @else
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-4 py-3 text-left"><a href="{{ route('books.index', array_merge($q,['sort'=>'id','dir'=>$toggleDir])) }}" class="hover:underline">ID</a></th>
-                <th class="px-4 py-3 text-left"><a href="{{ route('books.index', array_merge($q,['sort'=>'title','dir'=>$toggleDir])) }}" class="hover:underline">Title</a></th>
-                <th class="px-4 py-3 text-left">Author</th>
-                <th class="px-4 py-3 text-left">Category</th>
-                <th class="px-4 py-3 text-left"><a href="{{ route('books.index', array_merge($q,['sort'=>'stock','dir'=>$toggleDir])) }}" class="hover:underline">Stock</a></th>
-                <th class="px-4 py-3 text-left"><a href="{{ route('books.index', array_merge($q,['sort'=>'updated_at','dir'=>$toggleDir])) }}" class="hover:underline">Updated</a></th>
-                <th class="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              @foreach($books as $b)
-                <tr class="align-top">
-                  <td class="px-4 py-3">{{ $b->id }}</td>
-                  <td class="px-4 py-3">
-                    <div class="font-medium">{{ $b->title }}</div>
-                    <div class="text-xs text-gray-500">ISBN: {{ $b->isbn ?? '—' }}</div>
-                  </td>
-                  <td class="px-4 py-3">{{ $b->author ?? '—' }}</td>
-                  <td class="px-4 py-3">
-                    @if($b->categories->count())
-                      <div class="flex flex-wrap gap-1">
-                        @foreach($b->categories as $cat)
-                          <span class="text-xs bg-gray-100 border rounded px-2 py-0.5">{{ $cat->name }}</span>
-                        @endforeach
-                      </div>
-                    @else — @endif
-                  </td>
-                  <td class="px-4 py-3">
-                    @php $stockClass = $b->stock == 0 ? 'text-red-700' : ($b->stock <= 5 ? 'text-amber-700' : 'text-gray-900'); @endphp
-                    <span class="{{ $stockClass }}">{{ $b->stock }}</span>
-                  </td>
-                  <td class="px-4 py-3">{{ $b->updated_at?->format('Y-m-d H:i') }}</td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center justify-end gap-2">
-                      @can('update', $b)
-                        <a href="{{ route('books.edit',$b) }}" class="px-3 py-1.5 border rounded hover:bg-gray-50">Edit</a>
-                        <a href="{{ route('inventory.history',$b) }}" class="px-3 py-1.5 border rounded hover:bg-gray-50">History</a>
-                      @endcan
-                      @can('delete', $b)
-                        <form action="{{ route('books.destroy',$b) }}" method="POST" onsubmit="return confirm('Delete this book?')">
-                          @csrf @method('DELETE')
-                          <button class="px-3 py-1.5 border rounded text-red-700 hover:bg-red-50">Delete</button>
-                        </form>
-                      @endcan
-                    </div>
-                  </td>
-                </tr>
-              @endforeach
-            </tbody>
-          </table>
-        </div>
-        <div class="p-4">{{ $books->onEachSide(1)->links() }}</div>
-      @endif
+    <div class="row" style="gap:8px;">
+      {{-- Back button --}}
+      <a href="{{ route('dashboard.staff') }}" class="pill">← Back</a>
+      <a href="{{ route('books.create') }}" class="btn primary">➕ Add Book</a>
     </div>
-
   </div>
+
+  {{-- Controls --}}
+  @php($threshold = (int) request('low', 5))
+  <form method="GET" class="row mb" style="gap:10px; align-items:center;">
+    {{-- Keep existing query params except low & page --}}
+    @foreach(request()->except(['low','page']) as $k => $v)
+      <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+    @endforeach
+
+    <label class="muted">Low threshold</label>
+    <input type="number" min="0" name="low" value="{{ $threshold }}" class="input" style="width:100px">
+    <button class="btn">Apply</button>
+
+    <div class="right muted">
+      Rows with <span class="pill" style="border-color:transparent;background:linear-gradient(180deg,#1a0e0e,#241012);color:#fca5a5;">low stock</span>
+      mean stock &lt; {{ $threshold }}.
+    </div>
+  </form>
+
+  {{-- Table --}}
+  @if($books->count())
+    <div class="grid">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:80px">Cover</th>
+            <th>Title</th>
+            <th>Author</th>
+            <th>ISBN</th>
+            <th>Price</th>
+            <th>Stock</th>
+            <th class="right" style="width:260px">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($books as $book)
+            @php($isLow = (int)($book->stock ?? 0) < $threshold)
+            <tr style="{{ $isLow ? 'background:linear-gradient(180deg,#1a0e0e,#241012);' : '' }}">
+              <td>
+                @if($book->cover_image_url ?? false)
+                  <img src="{{ $book->cover_image_url }}" alt="Cover" style="height:60px;border-radius:8px;border:1px solid #1c2346;">
+                @else
+                  <div class="muted" style="font-size:12px">No cover</div>
+                @endif
+              </td>
+              <td>{{ $book->title }}</td>
+              <td class="muted">{{ $book->author }}</td>
+              <td class="muted">{{ $book->isbn }}</td>
+              <td>RM {{ number_format($book->price,2) }}</td>
+              <td>
+                {{ (int)($book->stock ?? 0) }}
+                @if($isLow)
+                  <span class="pill" style="border-color:#3e1d1d;background:linear-gradient(180deg,#1a0e0e,#241012);color:#fca5a5;margin-left:8px">Low</span>
+                @endif
+              </td>
+              <td class="right">
+                <div class="row" style="gap:8px;justify-content:flex-end;flex-wrap:nowrap">
+                  <a href="{{ route('books.show',$book) }}" class="pill">View</a>
+                  <a href="{{ route('books.edit',$book) }}" class="btn">Edit</a>
+                  <form action="{{ route('books.destroy',$book) }}" method="POST" onsubmit="return confirm('Delete this book?')">
+                    @csrf @method('DELETE')
+                    <button class="btn danger">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+
+      {{-- Pagination keeps filters --}}
+      <div class="mt">
+        {{ $books->withQueryString()->links() }}
+      </div>
+    </div>
+  @else
+    {{-- Empty state --}}
+    <div class="card center" style="background:linear-gradient(180deg,#0f1630,#0b1128);">
+      <div style="font-size:48px;line-height:1.1">📭</div>
+      <h3 style="margin:8px 0 6px">No books found</h3>
+      <p class="muted mb">Try adjusting your search or add a new book.</p>
+      <a href="{{ route('books.create') }}" class="btn primary">Add your first book</a>
+    </div>
+  @endif
 </div>
+
+{{-- LocalStorage helper to persist threshold --}}
+<script>
+(function () {
+  const KEY = 'books.lowThreshold';
+  const url = new URL(window.location.href);
+  const qp = url.searchParams;
+
+  // If URL has no ?low but localStorage has, add it and reload once
+  if (!qp.has('low')) {
+    const saved = localStorage.getItem(KEY);
+    if (saved !== null) {
+      qp.set('low', saved);
+      window.location.replace(url.toString());
+      return;
+    }
+  }
+
+  // Hook into threshold input
+  const input = document.querySelector('input[name="low"]');
+  if (input) {
+    input.addEventListener('change', () => {
+      localStorage.setItem(KEY, input.value || '5');
+    });
+  }
+})();
+</script>
 @endsection

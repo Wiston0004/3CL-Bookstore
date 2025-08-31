@@ -2,19 +2,27 @@
 
 namespace Database\Seeders;
 
-use App\Models\Category;
 use Illuminate\Database\Seeder;
+use App\Models\Category;
 use Illuminate\Support\Str;
 
 class CategorySeeder extends Seeder
 {
     public function run(): void
     {
-        $names = ['Fiction','Non-fiction','Science','Technology','Business','Children','Comics','History','Self-help'];
-        foreach ($names as $name) {
+        $categories = [
+            'Fiction','Non-Fiction','Science','Biography','History',
+            'Children','Young Adult','Mystery','Romance','Fantasy',
+            'Horror','Thriller','Self-Help','Health & Wellness',
+            'Travel','Cookbooks','Art & Photography','Business',
+            'Technology','Education','Religion','Comics & Graphic Novels',
+            'Poetry','Science Fiction','Politics',
+        ];
+
+         foreach ($categories as $name) {
             Category::updateOrCreate(
-                ['slug' => Str::slug($name)],
-                ['name' => $name]
+                ['name' => $name],
+                ['slug' => Str::slug($name)] // 👈 generate slug
             );
         }
     }

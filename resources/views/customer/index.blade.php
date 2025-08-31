@@ -1,34 +1,66 @@
 @extends('layouts.app')
 
-@section('header')
-  <h2 class="font-semibold text-xl text-gray-800 leading-tight">Books</h2>
-@endsection
+@section('title','Browse Books')
 
 @section('content')
-<div class="py-6">
-  <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-    <form method="get" class="mb-4">
-      <input name="search" value="{{ request('search') }}" class="border rounded px-3 py-2" placeholder="Search books...">
-      <button class="px-3 py-2 bg-indigo-600 text-white rounded">Search</button>
+  <div class="card mb">
+    <form method="get" class="row" autocomplete="off">
+      <input class="input" name="search" value="{{ request('search') }}" placeholder="Search title, author, ISBN">
+      <button class="btn right">Search</button>
+      @if(request('search'))
+        <a href="{{ route('customer.index') }}" class="btn">Clear</a>
+      @endif
     </form>
-
-    @if($books->count()===0)
-      <div class="bg-white p-6 rounded shadow text-gray-600">No books found.</div>
-    @else
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        @foreach($books as $b)
-          <a href="{{ route('customer.show',$b) }}" class="bg-white rounded shadow p-4 hover:shadow-md">
-            @if($b->cover_path)
-              <img src="{{ asset('storage/'.$b->cover_path) }}" class="w-full h-56 object-cover rounded mb-2">
-            @endif
-            <div class="font-semibold">{{ $b->title }}</div>
-            <div class="text-sm text-gray-600">{{ $b->author }}</div>
-            <div class="mt-2">RM {{ number_format($b->price,2) }}</div>
-          </a>
-        @endforeach
-      </div>
-      <div class="mt-4">{{ $books->links() }}</div>
-    @endif
   </div>
-</div>
+
+  @if($books->count())
+    <div class="grid grid-3">
+      @foreach($books as $book)
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div class="center" style="background:#0f1533;border:1px solid #1c2346;border-radius:12px;padding:12px;height:230px;display:flex;align-items:center;justify-content:center;">
+            @if($book->cover_image_url)
+              <img src="{{ $book->cover_image_url }}" alt="Cover" style="max-height:100%;max-width:100%;object-fit:contain;">
+            @else
+              <span class="muted">No Cover</span>
+            @endif
+          </div>
+
+          <div>
+            <div class="row">
+              <h3 style="margin:0">{{ $book->title }}</h3>
+              <span class="pill right" style="background:{{ $book->stock>0 ? '#0f2a1a' : '#2a1212' }};border-color:{{ $book->stock>0 ? '#184a31' : '#4a1c1c' }}">
+                {{ $book->stock>0 ? 'In stock ('.$book->stock.')' : 'Out of stock' }}
+              </span>
+            </div>
+            <div class="muted">by {{ $book->author }}</div>
+            <div class="muted">Category: {{ $book->categories->first()->name ?? '-' }}</div>
+
+            @if(!empty($book->description))
+              <p class="muted" style="margin-top:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">
+                {{ $book->description }}
+              </p>
+            @endif
+          </div>
+
+          <div class="row">
+            <div class="pill">RM {{ number_format($book->price,2) }}</div>
+            <div class="right row" style="gap:8px">
+              <a href="{{ route('customer.show',$book) }}" class="btn">View Details</a>
+              <button type="button" class="btn primary"
+                      @if($book->stock<=0) disabled @endif
+                      onclick="this.innerText='Added!'; this.classList.remove('primary'); this.classList.add('success'); alert('“{{ addslashes($book->title) }}” added to cart (demo only).');">
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      @endforeach
+    </div>
+
+    <div class="mt">
+      {{ $books->withQueryString()->links() }}
+    </div>
+  @else
+    <div class="card center muted">No books available right now.</div>
+  @endif
 @endsection

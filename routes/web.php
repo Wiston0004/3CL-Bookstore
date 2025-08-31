@@ -44,26 +44,26 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile', [ProfileController::class,'update'])->name('profile.update');
 });
 
-// ----------------- Inventory / Books -----------------
+
+// ----------------- Public catalog (no auth) -----------------
+Route::get('/catalog',        [BookController::class, 'customerIndex'])->name('customer.index');
+Route::get('/catalog/{book}', [BookController::class, 'customerShow'])->name('customer.show');
+
+// Reviews (must be logged in)
 Route::middleware('auth')->group(function () {
-
-    // CUSTOMER browsing books & reviews
-    Route::get('/books',            [BookController::class, 'customerIndex'])->name('customer.index');
-    Route::get('/books/{book}',     [BookController::class, 'customerShow'])->name('customer.show');
-    Route::post('/books/{book}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
-
-    // STAFF + MANAGER inventory management
-    Route::middleware('role:staff,manager')->group(function () {
-        // CRUD books
-        Route::get   ('/admin/books',               [BookController::class, 'index'])->name('books.index');
-        Route::get   ('/admin/books/create',        [BookController::class, 'create'])->name('books.create');
-        Route::post  ('/admin/books',               [BookController::class, 'store'])->name('books.store');
-        Route::get   ('/admin/books/{book}/edit',   [BookController::class, 'edit'])->name('books.edit');
-        Route::put   ('/admin/books/{book}',        [BookController::class, 'update'])->name('books.update');
-        Route::delete('/admin/books/{book}',        [BookController::class, 'destroy'])->name('books.destroy');
-
-        // Stock adjustments + history
-        Route::post('/admin/books/{book}/stock',    [InventoryController::class, 'adjust'])->name('inventory.adjust');
-        Route::get ('/admin/books/{book}/history',  [InventoryController::class, 'history'])->name('inventory.history');
-    });
+    Route::post('/catalog/{book}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
 });
+
+// ----------------- Books CRUD & inventory (NO /admin prefix) -----------------
+Route::middleware(['auth','role:staff,manager'])->group(function () {
+    // CRUD on /books  -> names: books.*
+    Route::resource('books', BookController::class);
+
+    // Stock adjustments + history -> names: inventory.adjust / inventory.history
+    Route::post('books/{book}/stock',   [InventoryController::class, 'adjust'])->name('inventory.adjust');
+    Route::get ('books/{book}/history', [InventoryController::class, 'history'])->name('inventory.history');
+});
+
+Route::get('/dashboard/staff', function () {
+    return view('dashboards.staff');
+})->name('dashboard.staff');
