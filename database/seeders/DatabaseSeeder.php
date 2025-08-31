@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             ManagerSeeder::class,
             StaffSeeder::class,
             CustomerSeeder::class,
+            CategorySeeder::class,
         ]);
     }
 }

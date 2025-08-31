@@ -1,87 +1,112 @@
+{{-- resources/views/manager/users/index.blade.php --}}
 @extends('layouts.app')
-@section('title','User Manager')
+
+@section('header')
+  <h2 class="font-semibold text-xl text-gray-800 leading-tight">Manage Users</h2>
+@endsection
+
 @section('content')
-<div class="card">
-  <div class="row">
-    <h3 style="margin:0">Users</h3>
-    <a class="btn primary right" href="{{ route('manager.users.create') }}">+ New</a>
-  </div>
+<div class="py-6">
+  <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
 
-  {{-- Filter + Sort --}}
-  <form method="GET" class="row mt" style="gap:10px">
-    <input class="input" name="search" value="{{ $search ?? '' }}" placeholder="Search username, email, or name" style="min-width:260px">
-
-    <select class="input" name="role" style="min-width:160px">
-      <option value="" {{ ($role ?? '')==='' ? 'selected':'' }}>All roles</option>
-      <option value="staff" {{ ($role ?? '')==='staff' ? 'selected':'' }}>Staff</option>
-      <option value="customer" {{ ($role ?? '')==='customer' ? 'selected':'' }}>Customer</option>
-    </select>
-
-    <select class="input" name="sort" style="min-width:160px">
-      <option value="id"   {{ ($sort ?? 'id')==='id' ? 'selected':'' }}>Sort by ID</option>
-      <option value="name" {{ ($sort ?? 'id')==='name' ? 'selected':'' }}>Sort by Name</option>
-    </select>
-
-    <select class="input" name="dir" style="min-width:140px">
-      <option value="asc"  {{ ($dir ?? 'desc')==='asc'  ? 'selected':'' }}>Ascending</option>
-      <option value="desc" {{ ($dir ?? 'desc')==='desc' ? 'selected':'' }}>Descending</option>
-    </select>
-
-    <button class="btn" type="submit">Apply</button>
-    @if(($search ?? '')!=='' || ($role ?? '')!=='' || ($sort ?? 'id')!=='id' || ($dir ?? 'desc')!=='desc')
-      <a class="pill" href="{{ route('manager.users.index') }}">Reset</a>
+    {{-- Flash messages --}}
+    @if(session('ok'))
+      <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">{{ session('ok') }}</div>
     @endif
-  </form>
+    @if(session('err'))
+      <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">{{ session('err') }}</div>
+    @endif
 
-  <div class="mt">
-    <table class="table">
-      <thead>
-        <tr>
-          {{-- Clickable headers to toggle sort --}}
-          @php
-            $toggleDir = ($dir ?? 'desc') === 'asc' ? 'desc' : 'asc';
-          @endphp
-          <th>
-            <a href="{{ route('manager.users.index', array_merge(request()->query(), ['sort'=>'id','dir'=> ($sort==='id' ? $toggleDir : 'asc')])) }}">
-              ID {!! $sort==='id' ? ($dir==='asc'?'↑':'↓') : '' !!}
-            </a>
-          </th>
-          <th>Role</th>
-          <th>
-            <a href="{{ route('manager.users.index', array_merge(request()->query(), ['sort'=>'name','dir'=> ($sort==='name' ? $toggleDir : 'asc')])) }}">
-              Name {!! $sort==='name' ? ($dir==='asc'?'↑':'↓') : '' !!}
-            </a>
-          </th>
-          <th>Username</th>
-          <th>Email</th>
-          <th>Points</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-      @forelse($users as $u)
-        <tr>
-          <td>{{ $u->id }}</td>
-          <td><span class="pill">{{ $u->role }}</span></td>
-          <td>{{ $u->name }}</td>
-          <td>{{ $u->username }}</td>
-          <td>{{ $u->email }}</td>
-          <td>{{ $u->points }}</td>
-          <td class="right">
-            <a class="pill" href="{{ route('manager.users.edit',$u) }}">Edit</a>
-            <form method="POST" action="{{ route('manager.users.destroy',$u) }}" style="display:inline">
-              @csrf @method('DELETE')
-              <button class="pill" data-confirm="Delete this user?">Delete</button>
-            </form>
-          </td>
-        </tr>
-      @empty
-        <tr><td colspan="7" class="muted">No users found…</td></tr>
-      @endforelse
-      </tbody>
-    </table>
+    {{-- Filters / Search / Sort --}}
+    <form method="get" class="bg-white p-4 rounded shadow grid grid-cols-1 md:grid-cols-5 gap-3" autocomplete="off">
+      {{-- Search --}}
+      <input
+        class="border rounded px-3 py-2"
+        name="search"
+        value="{{ request('search') }}"
+        placeholder="Search name or email"
+      >
 
-    <div class="mt">{{ $users->links() }}</div>
+      {{-- Role filter --}}
+      <select name="role" class="border rounded px-3 py-2">
+        <option value="">All roles</option>
+        <option value="manager"  @selected(request('role')==='manager')>Manager</option>
+        <option value="staff"    @selected(request('role')==='staff')>Staff</option>
+        <option value="customer" @selected(request('role')==='customer')>Customer</option>
+      </select>
+
+      {{-- Sort field --}}
+      <select name="sort" class="border rounded px-3 py-2">
+        @php $sort = request('sort', 'id'); @endphp
+        <option value="id"   @selected($sort==='id')>Sort: ID</option>
+        <option value="name" @selected($sort==='name')>Name</option>
+      </select>
+
+      {{-- Sort direction --}}
+      <select name="dir" class="border rounded px-3 py-2">
+        @php $dir = request('dir', 'desc'); @endphp
+        <option value="asc"  @selected($dir==='asc')>Asc</option>
+        <option value="desc" @selected($dir==='desc')>Desc</option>
+      </select>
+
+      {{-- Actions --}}
+      <div class="flex gap-2">
+        <button class="px-4 py-2 bg-indigo-600 text-white rounded">Apply</button>
+        @if(request()->query())
+          <a href="{{ route('manager.users.index') }}" class="px-4 py-2 border rounded">Clear</a>
+        @endif
+      </div>
+    </form>
+
+    {{-- Results table --}}
+    <div class="bg-white rounded shadow overflow-hidden">
+      @php
+        $q = request()->except(['page']);
+        $toggleDir = request('dir','desc')==='desc' ? 'asc' : 'desc';
+      @endphp
+
+      @if($users->count() === 0)
+        <div class="p-8 text-center text-gray-500">No users found.</div>
+      @else
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left">
+                  <a href="{{ route('manager.users.index', array_merge($q,['sort'=>'id','dir'=>$toggleDir])) }}" class="hover:underline">
+                    ID
+                  </a>
+                </th>
+                <th class="px-4 py-3 text-left">
+                  <a href="{{ route('manager.users.index', array_merge($q,['sort'=>'name','dir'=>$toggleDir])) }}" class="hover:underline">
+                    Name
+                  </a>
+                </th>
+                <th class="px-4 py-3 text-left">Email</th>
+                <th class="px-4 py-3 text-left">Role</th>
+                <th class="px-4 py-3 text-left">Joined</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              @foreach($users as $u)
+                <tr>
+                  <td class="px-4 py-3">{{ $u->id }}</td>
+                  <td class="px-4 py-3">{{ $u->name }}</td>
+                  <td class="px-4 py-3">{{ $u->email }}</td>
+                  <td class="px-4 py-3 capitalize">{{ $u->role }}</td>
+                  <td class="px-4 py-3">{{ $u->created_at?->format('Y-m-d H:i') }}</td>
+                </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
+
+        <div class="p-4">
+          {{ $users->onEachSide(1)->links() }}
+        </div>
+      @endif
+    </div>
+
   </div>
 </div>
 @endsection

@@ -10,8 +10,12 @@ class EnsureRole
     public function handle(Request $request, Closure $next, ...$roles)
     {
         $user = $request->user();
-        abort_if(!$user || !in_array($user->role, $roles, true), 403);
+        if (!$user) abort(401);
 
+        // your User has a `role` column: manager | staff | customer
+        if (!in_array($user->role, $roles, true)) {
+            abort(403, 'You are not allowed to access this page.');
+        }
         return $next($request);
     }
 }

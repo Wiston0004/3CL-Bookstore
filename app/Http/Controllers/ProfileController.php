@@ -3,88 +3,90 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
-    /** Show profile form (manager has no profile features) */
-    public function edit()
+    /**
+     * Show the profile form.
+     * Managers don't need profile features: redirect them away.
+     */
+    public function edit(Request $request)
     {
-        $user = Auth::user();
+        $user = $request->user();
 
-        // Manager → no profile features
         if ($user->role === 'manager') {
+            // Manager: no profile page as per requirement
             return redirect()
                 ->route('manager.dashboard')
-                ->with('flash.info', 'Manager accounts do not have profile settings.');
+                ->with('err', 'Managers do not have profile settings. Use Manage Users instead.');
         }
 
-        // Build a simple list of editable fields for the view
-        $editable = $user->role === 'customer'
-            ? ['name','username','email','phone','address','avatar','password']
-            : ['username','phone','address','avatar','password']; // staff
-
-        return view('profile.edit', [
-            'user'     => $user,
-            'editable' => $editable,
-        ]);
+        return view('profile.edit', ['user' => $user]);
     }
 
-    /** Update profile with role-specific rules */
+    /**
+     * Update the user profile.
+     * - Staff: cannot change name/email.
+     * - Customer: can change everything.
+     */
     public function update(Request $request)
     {
         $user = $request->user();
 
-        // Manager → block
         if ($user->role === 'manager') {
+            // Manager: keep consistent with edit()
             return redirect()
                 ->route('manager.dashboard')
-                ->with('flash.info', 'Manager accounts do not have profile settings.');
+                ->with('err', 'Managers do not have profile settings. Use Manage Users instead.');
         }
 
-        if ($user->role === 'customer') {
-            // Customer can edit everything
-            $rules = [
-                'name'                  => ['required','string','max:100'],
-                'username'              => ['required','alpha_num','min:4','max:30',"unique:users,username,{$user->id}"],
-                'email'                 => ['required','email','max:255',"unique:users,email,{$user->id}"],
-                'phone'                 => ['nullable','string','max:20'],
-                'address'               => ['nullable','string','max:255'],
-                'avatar'                => ['nullable','image','max:2048'],
-                'password'              => ['nullable','confirmed','min:8'],
-            ];
-            $allowed = ['name','username','email','phone','address']; // avatar/password handled below
+        // Base validation rules (we'll trim them for staff)
+        $rules = [
+            'name'   => ['sometimes','string','max:255'],
+            'email'  => [
+                'sometimes','email','max:255',
+                Rule::unique('users','email')->ignore($user->id),
+            ],
+            'phone'  => ['nullable','string','max:50'],
+            'address'=> ['nullable','string','max:255'],
+            'password' => ['nullable','confirmed','min:8'],
+            'avatar'   => ['nullable','image','mimes:jpg,jpeg,png,webp','max:2048'],
+        ];
 
-        } else { // staff
-            // Staff cannot edit name or email
-            $rules = [
-                'username'              => ['required','alpha_num','min:4','max:30',"unique:users,username,{$user->id}"],
-                'phone'                 => ['nullable','string','max:20'],
-                'address'               => ['nullable','string','max:255'],
-                'avatar'                => ['nullable','image','max:2048'],
-                'password'              => ['nullable','confirmed','min:8'],
-            ];
-            $allowed = ['username','phone','address']; // avatar/password handled below
+        // Staff cannot change name/email — remove those rules to ignore updates even if posted
+        if ($user->role === 'staff') {
+            unset($rules['name'], $rules['email']);
         }
 
         $data = $request->validate($rules);
 
-        // Only keep fields allowed for this role to prevent tampering
-        $data = array_intersect_key($data, array_flip($allowed));
-
-        // Handle password if provided
-        if ($request->filled('password')) {
-            $user->password = $request->input('password'); // hashed via mutator/cast
+        // Ensure staff's name/email never change server-side
+        if ($user->role === 'staff') {
+            unset($data['name'], $data['email']);
         }
 
         // Handle avatar upload
         if ($request->hasFile('avatar')) {
-            $path = $request->file('avatar')->store('avatars','public');
+            // Delete old avatar if any
+            if ($user->avatar_path && Storage::disk('public')->exists($user->avatar_path)) {
+                Storage::disk('public')->delete($user->avatar_path);
+            }
+
+            $path = $request->file('avatar')->store('avatars', 'public');
             $data['avatar_path'] = $path;
         }
 
-        $user->update($data);
+        // If password empty, do not overwrite
+        if (empty($data['password'])) {
+            unset($data['password']);
+        }
+        // NOTE: Your User model already auto-hashes password via setPasswordAttribute()
 
-        return back()->with('flash.success', 'Profile updated.');
+        // Update and save
+        $user->fill($data)->save();
+
+        return back()->with('ok', 'Profile updated successfully.');
     }
 }

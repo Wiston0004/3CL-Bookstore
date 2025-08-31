@@ -1,8 +1,23 @@
 @extends('layouts.app')
-@section('title','Staff Dashboard')
+
+@section('header')
+  <h2 class="font-semibold text-xl text-gray-800 leading-tight">Staff Dashboard</h2>
+@endsection
+
 @section('content')
-<div class="card">
-  <h3 style="margin-top:0">Welcome, {{ auth()->user()->name }}</h3>
-  <p class="muted">You’re signed in as <b>staff</b>.</p>
+<div class="p-6 max-w-7xl mx-auto">
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+    {{-- Inventory / Books --}}
+    <a href="{{ route('books.index') }}"
+       class="block rounded-xl border border-gray-200 bg-white p-6 shadow hover:shadow-md transition">
+      <div class="text-2xl mb-2">📚</div>
+      <div class="font-semibold text-lg">Manage Inventory</div>
+      <p class="text-sm text-gray-600 mt-1">
+        View, add, edit books and adjust stock.
+      </p>
+    </a>
+
+  </div>
 </div>
 @endsection

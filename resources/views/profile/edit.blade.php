@@ -1,118 +1,136 @@
+{{-- resources/views/profile/edit.blade.php --}}
 @extends('layouts.app')
-@section('title','My Profile')
+
+@section('header')
+  <h2 class="font-semibold text-xl text-gray-800 leading-tight">My Profile</h2>
+@endsection
+
 @section('content')
-@php
-  // $user and $editable are passed from controller
-@endphp
+<div class="py-6">
+  <div class="max-w-3xl mx-auto sm:px-6 lg:px-8 space-y-4">
 
-<div class="card" style="max-width:720px;margin:0 auto">
-  <h3 style="margin-top:0">Edit Profile</h3>
+    {{-- Flash messages --}}
+    @if(session('ok'))
+      <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">{{ session('ok') }}</div>
+    @endif
+    @if(session('err'))
+      <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">{{ session('err') }}</div>
+    @endif
 
-  {{-- Show a quick banner if staff (to explain restrictions) --}}
-  @if($user->role === 'staff')
-    <p class="muted">Note: Staff cannot edit <b>name</b> or <b>email</b>. Please contact the manager for changes.</p>
-  @endif
+    @php $u = $user ?? auth()->user(); @endphp
 
-  @if ($errors->any())
-    <div class="muted" style="color:#fca5a5">{{ implode(', ', $errors->all()) }}</div>
-  @endif
-
-  <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data">
-    @csrf
-
-    <div class="grid grid-2">
-      {{-- NAME --}}
-      <div>
-        <label>Name</label>
-        @if(in_array('name',$editable))
-          <input class="input" name="name" value="{{ old('name',$user->name) }}" required>
-        @else
-          <input class="input" value="{{ $user->name }}" disabled>
-        @endif
-      </div>
-
-      {{-- USERNAME --}}
-      <div>
-        <label>Username</label>
-        @if(in_array('username',$editable))
-          <input class="input" name="username" value="{{ old('username',$user->username) }}" required>
-        @else
-          <input class="input" value="{{ $user->username }}" disabled>
-        @endif
-      </div>
-
-      {{-- EMAIL --}}
-      <div>
-        <label>Email</label>
-        @if(in_array('email',$editable))
-          <input class="input" type="email" name="email" value="{{ old('email',$user->email) }}" required>
-        @else
-          <input class="input" type="email" value="{{ $user->email }}" disabled>
-        @endif
-      </div>
-
-      {{-- PHONE --}}
-      <div>
-        <label>Phone</label>
-        @if(in_array('phone',$editable))
-          <input class="input" name="phone" value="{{ old('phone',$user->phone) }}">
-        @else
-          <input class="input" value="{{ $user->phone }}" disabled>
-        @endif
-      </div>
-
-      {{-- ADDRESS --}}
-      <div style="grid-column:1/-1">
-        <label>Address</label>
-        @if(in_array('address',$editable))
-          <input class="input" name="address" value="{{ old('address',$user->address) }}">
-        @else
-          <input class="input" value="{{ $user->address }}" disabled>
-        @endif
-      </div>
-
-      {{-- PASSWORD (always allowed for staff & customer) --}}
-      <div>
-        <label>New Password</label>
-        @if(in_array('password',$editable))
-          <input class="input" type="password" name="password" autocomplete="new-password">
-        @else
-          <input class="input" type="password" value="********" disabled>
-        @endif
-      </div>
-      <div>
-        <label>Confirm Password</label>
-        @if(in_array('password',$editable))
-          <input class="input" type="password" name="password_confirmation" autocomplete="new-password">
-        @else
-          <input class="input" type="password" value="********" disabled>
-        @endif
-      </div>
-
-      {{-- AVATAR --}}
-      <div style="grid-column:1/-1">
-        <label>Avatar</label>
-        @if(in_array('avatar',$editable))
-          <input class="input" type="file" name="avatar" accept="image/*">
-        @else
-          <input class="input" type="text" value="No changes allowed" disabled>
-        @endif
-      </div>
-    </div>
-
-    @if($user->avatar_path)
-      <div class="mt">
-        <img src="{{ asset('storage/'.$user->avatar_path) }}" alt="avatar"
-             style="height:64px;border-radius:12px;border:1px solid #2a3263">
+    {{-- Staff notice --}}
+    @if($u->role === 'staff')
+      <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
+        Staff can update profile details except <strong>name</strong> and <strong>email</strong> (set by Manager).
       </div>
     @endif
 
-    <div class="row mt">
-      <button class="btn success" @if($user->role==='manager') disabled @endif>
-        Save Changes
-      </button>
-      <a class="pill right" href="{{ route($user->role.'.dashboard') }}">Back</a>
+    {{-- Customer notice --}}
+    @if($u->role === 'customer')
+      <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
+        Customers can update all profile fields below.
+      </div>
+    @endif
+
+    <div class="bg-white shadow rounded p-6">
+      <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data" class="space-y-5">
+        @csrf
+
+        {{-- Avatar --}}
+        <div class="flex items-center gap-4">
+          <div class="w-16 h-16 rounded-full overflow-hidden bg-gray-100">
+            @if($u->avatar_path)
+              <img src="{{ asset('storage/'.$u->avatar_path) }}" alt="avatar" class="w-16 h-16 object-cover">
+            @else
+              <div class="w-full h-full flex items-center justify-center text-gray-400">No Avatar</div>
+            @endif
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Avatar</label>
+            <input type="file" name="avatar" accept="image/*" class="block w-full text-sm">
+            @error('avatar') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+        </div>
+
+        {{-- Name --}}
+        <div>
+          <label class="block text-sm font-medium mb-1">Name</label>
+          <input
+            type="text"
+            name="name"
+            value="{{ old('name', $u->name) }}"
+            @if($u->role !== 'customer') readonly @endif
+            class="w-full border rounded px-3 py-2 @if($u->role !== 'customer') bg-gray-100 cursor-not-allowed @endif"
+          >
+          @error('name') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+          @if($u->role === 'staff')
+            <div class="text-xs text-gray-500 mt-1">Staff name is maintained by Manager.</div>
+          @endif
+        </div>
+
+        {{-- Email --}}
+        <div>
+          <label class="block text-sm font-medium mb-1">Email</label>
+          <input
+            type="email"
+            name="email"
+            value="{{ old('email', $u->email) }}"
+            @if($u->role !== 'customer') readonly @endif
+            class="w-full border rounded px-3 py-2 @if($u->role !== 'customer') bg-gray-100 cursor-not-allowed @endif"
+          >
+          @error('email') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+          @if($u->role === 'staff')
+            <div class="text-xs text-gray-500 mt-1">Staff email is maintained by Manager.</div>
+          @endif
+        </div>
+
+        {{-- Phone --}}
+        <div>
+          <label class="block text-sm font-medium mb-1">Phone</label>
+          <input
+            type="text"
+            name="phone"
+            value="{{ old('phone', $u->phone) }}"
+            class="w-full border rounded px-3 py-2"
+            placeholder="+60-xxx-xxx"
+          >
+          @error('phone') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+        </div>
+
+        {{-- Address --}}
+        <div>
+          <label class="block text-sm font-medium mb-1">Address</label>
+          <input
+            type="text"
+            name="address"
+            value="{{ old('address', $u->address) }}"
+            class="w-full border rounded px-3 py-2"
+            placeholder="Street, City, State"
+          >
+          @error('address') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+        </div>
+
+        {{-- Password --}}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">New Password</label>
+            <input type="password" name="password" class="w-full border rounded px-3 py-2" placeholder="Leave blank to keep current">
+            @error('password') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Confirm New Password</label>
+            <input type="password" name="password_confirmation" class="w-full border rounded px-3 py-2">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <a href="{{ url()->previous() }}" class="px-4 py-2 border rounded">Cancel</a>
+          <button class="px-4 py-2 bg-indigo-600 text-white rounded">Save Changes</button>
+        </div>
+      </form>
     </div>
-  </form>
+
+  </div>
 </div>
 @endsection
