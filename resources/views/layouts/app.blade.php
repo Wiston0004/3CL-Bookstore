@@ -69,6 +69,17 @@
   <div class="brand">
     <div class="logo"></div>
     <strong>Bookstore</strong>
+
+    {{-- ▼ Add this: show only for logged-in customers --}}
+    @auth
+      @if(auth()->user()->role === 'customer')
+        <div class="row" style="margin-left:12px">
+          <a href="{{ route('orders.index') }}" class="pill" title="My Orders">📦 My Orders</a>
+          <a href="{{ route('cart.index') }}" class="pill" title="Cart">🛒 Cart</a>
+        </div>
+      @endif
+    @endauth
+    {{-- ▲ End added --}}
   </div>
 
   <nav class="row">
@@ -81,7 +92,7 @@
           <button class="btn">Logout</button>
         </form>
       @else
-        {{-- Staff/Customer: show Profile (and manager link only if you want) --}}
+        {{-- Staff/Customer: show Profile + Logout --}}
         <a href="{{ route('profile.edit') }}" class="pill">Profile</a>
         <form method="POST" action="{{ route('logout') }}">
           @csrf
@@ -96,6 +107,7 @@
     @endauth
   </nav>
 </header>
+
 
 <div class="wrap">@yield('content')</div>
 

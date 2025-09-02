@@ -10,6 +10,9 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ReviewController;
 
+use App\Http\Controllers\CartController;
+use App\Http\Controllers\OrderController;
+
 // ----------------- Public -----------------
 Route::view('/', 'home')->name('home'); // homepage with Register + 3 Logins
 
@@ -42,6 +45,28 @@ Route::middleware(['auth','role:customer'])->group(function(){
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class,'edit'])->name('profile.edit');
     Route::post('/profile', [ProfileController::class,'update'])->name('profile.update');
+
+    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+        Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
+        Route::patch('/cart/{cartItem}', [CartController::class, 'update'])->name('cart.update');
+        Route::delete('/cart/{cartItem}', [CartController::class, 'remove'])->name('cart.remove');
+
+        // Checkout step (page to fill address + payment)
+        Route::get('/checkout', [OrderController::class, 'showCheckout'])->name('checkout.show');
+        // Make payment (creates order and redirects to order page)
+        Route::post('/checkout', [OrderController::class, 'checkout'])->name('checkout');
+        // Orders
+        Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
+        Route::patch('/orders/{order}/address', [OrderController::class, 'updateAddress'])->name('orders.address');
+
+
+        // Admin-like transitions (optional; restrict with role/admin middleware)
+        Route::patch('/orders/{order}/ship',   [OrderController::class, 'ship'])->name('orders.ship');
+        Route::patch('/orders/{order}/arrive', [OrderController::class, 'arrive'])->name('orders.arrive');
+        Route::patch('/orders/{order}/complete',[OrderController::class, 'complete'])->name('orders.complete');
+        Route::patch('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
+
 });
 
 
