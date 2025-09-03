@@ -14,6 +14,9 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\Manager\TransactionController as ManagerTransactionController;
 use App\Http\Controllers\Staff\OrderController as StaffOrderController;
 use App\Http\Controllers\Manager\SalesReportController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventRegistrationController as RegController;
+use App\Http\Controllers\AnnouncementAsyncController as AnnController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +40,13 @@ Route::post('/logout',        [RoleLoginController::class, 'logout'])->name('log
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')->group(function () {
+    Route::get('/events',                 [EventController::class,'index'])->name('events.index');
+    Route::get('/events/create',          [EventController::class,'create'])->name('events.create');
+    Route::post('/events',                [EventController::class,'store'])->name('events.store');
+    Route::post('/events/{event}/cancel', [EventController::class,'cancel'])->name('events.cancel');
+    // Announcements (queued + pipeline)
+    Route::get('/announcements/create', [AnnController::class, 'create'])->name('ann.create');
+    Route::post('/announcements/queue', [AnnController::class, 'store'])->name('ann.queue');
     Route::view('/', 'dashboards.manager')->name('dashboard');
 
     // Users (no destroy, no bulk)
@@ -58,6 +68,14 @@ Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')-
 
 Route::middleware(['auth','role:staff'])->group(function () {
     Route::view('/staff', 'dashboards.staff')->name('staff.dashboard');
+    Route::get('/events',                 [EventController::class,'index'])->name('events.index');
+    Route::get('/events/create',          [EventController::class,'create'])->name('events.create');
+    Route::post('/events',                [EventController::class,'store'])->name('events.store');
+    Route::post('/events/{event}/cancel', [EventController::class,'cancel'])->name('events.cancel');
+
+    // Announcements (queued + pipeline)
+    Route::get('/announcements/create', [AnnController::class, 'create'])->name('ann.create');
+    Route::post('/announcements/queue', [AnnController::class, 'store'])->name('ann.queue');
 
     // Back-compat alias for old code using dashboard.staff
     Route::redirect('/dashboard/staff', '/staff')->name('dashboard.staff');
@@ -65,6 +83,9 @@ Route::middleware(['auth','role:staff'])->group(function () {
 
 Route::middleware(['auth','role:customer'])->group(function () {
     Route::view('/customer', 'dashboards.customer')->name('customer.dashboard');
+    Route::get('/events',                      [RegController::class,'list'])->name('events.list');
+    Route::get('/events/{event:slug}',         [RegController::class,'show'])->name('events.show');
+    Route::post('/events/{event:slug}/register',[RegController::class,'store'])->name('events.register.store');
 });
 
 /*
