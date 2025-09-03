@@ -65,15 +65,23 @@
 
       {{-- Shipping address --}}
       <div class="card">
-        <h3 style="margin:0 0 8px">📦 Shipping Address</h3>
-        <label class="field-label">Address</label>
-        <textarea name="shipping_address" rows="4" class="input" required>{{ old('shipping_address') }}</textarea>
-        <div class="row mt" style="gap:10px">
-          <input class="input" name="shipping_city" placeholder="City" value="{{ old('shipping_city') }}" style="max-width:220px">
-          <input class="input" name="shipping_state" placeholder="State" value="{{ old('shipping_state') }}" style="max-width:220px">
-          <input class="input" name="shipping_postcode" placeholder="Postcode" value="{{ old('shipping_postcode') }}" style="max-width:160px">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <h3 style="margin:0">📦 Shipping Address</h3>
         </div>
-        @error('shipping_address')<div class="muted-sm" style="color:#fca5a5">{{ $message }}</div>@enderror
+
+        <label class="field-label">Address</label>
+        <textarea name="shipping_address" rows="4" class="input" required>
+      {{ old('shipping_address', $userAddress ?? '') }}</textarea>
+
+        @error('shipping_address')
+          <div class="muted-sm" style="color:#fca5a5">{{ $message }}</div>
+        @enderror
+
+        @if(empty($userAddress))
+          <div class="muted-sm" style="margin-top:6px">
+            No address found in your profile. You can update it via <a href="{{ route('profile.edit') }}">Profile</a>.
+          </div>
+        @endif
       </div>
 
       {{-- Shipping method --}}

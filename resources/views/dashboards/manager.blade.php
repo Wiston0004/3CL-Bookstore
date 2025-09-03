@@ -13,5 +13,13 @@
     <p class="muted">See monthly customer registrations</p>
     <a class="btn" href="{{ route('manager.reports.customers') }}">View Reports</a>
   </div>
+
+  <div class="card center">
+    <h3 style="margin-top:0">Transactions</h3>
+    <p class="muted">All payments & refunds</p>
+    <a class="btn" href="{{ route('manager.transactions.index') }}">View Transactions</a>
+  </div>
 </div>
+
+  
 @endsection

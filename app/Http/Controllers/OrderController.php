@@ -54,15 +54,22 @@ class OrderController extends Controller
         return view('orders.show', compact('order'));
     }
 
+    // app/Http/Controllers/OrderController.php
     public function showCheckout()
     {
-        $items = CartItem::with('book')->where('user_id', auth()->id())->get();
+        $items = \App\Models\CartItem::with('book')
+            ->where('user_id', auth()->id())->get();
+
         if ($items->isEmpty()) {
             return redirect()->route('cart.index')->with('err','Your cart is empty.');
         }
-        $subtotal = $items->sum(fn($i) => $i->quantity * ($i->book->price ?? 0));
-        return view('orders.checkout', compact('items','subtotal'));
+
+        $subtotal    = $items->sum(fn($i) => $i->quantity * ($i->book->price ?? 0));
+        $userAddress = optional(auth()->user())->address;   // <-- from users.address
+
+        return view('orders.checkout', compact('items','subtotal','userAddress'));
     }
+
 
     // Cart → Order (Make Payment)
     public function checkout(Request $req)
@@ -186,8 +193,12 @@ class OrderController extends Controller
     {
         $user = auth()->user();
         if (! $user) abort(401);
-        if ($user->role === 'admin') return;
+
+        // ✅ allow staff too
+        if (in_array($user->role, ['admin','staff'], true)) return;
+
         if ($order->user_id === $user->id) return;
         abort(403);
     }
+
 }

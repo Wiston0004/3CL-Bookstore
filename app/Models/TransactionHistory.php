@@ -8,3 +8,5 @@ class TransactionHistory extends Model
     protected $casts = ['transaction_date' => 'datetime','amount' => 'decimal:2'];
     public function order(){ return $this->belongsTo(Order::class); }
 }
+
+

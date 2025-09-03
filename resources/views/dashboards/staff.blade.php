@@ -113,6 +113,7 @@
           <a href="{{ route('books.create', request()->query()) }}" class="btn primary">Add Book</a>
           <a href="{{ route('books.index', array_merge(request()->query(), ['low'=>request('low', $threshold)])) }}" class="btn">Reorder Low Stock</a>
           <a href="{{ route('books.index', request()->query()) }}" class="pill">Manage Inventory</a>
+          <a href="{{ route('staff.orders.index') }}" class="btn">🧾 Manage Orders</a>
         </div>
       </div>
 

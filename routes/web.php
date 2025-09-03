@@ -11,6 +11,9 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\Manager\TransactionController as ManagerTransactionController;
+use App\Http\Controllers\Staff\OrderController as StaffOrderController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -46,6 +49,11 @@ Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')-
 
     // Report
     Route::get('reports/customers', [ReportController::class, 'customersMonthly'])->name('reports.customers');
+
+    Route::get('/transactions', [ManagerTransactionController::class, 'index'])
+      ->name('transactions.index');
+    Route::get('/transactions/{tx}', [ManagerTransactionController::class, 'show'])
+      ->name('transactions.show');
 });
 
 Route::middleware(['auth','role:staff'])->group(function () {
@@ -113,3 +121,11 @@ Route::middleware(['auth','role:staff,manager'])->group(function () {
     Route::post('books/{book}/stock',   [InventoryController::class, 'adjust'])->name('inventory.adjust');
     Route::get( 'books/{book}/history', [InventoryController::class, 'history'])->name('inventory.history');
 });
+
+Route::middleware(['auth','role:staff'])
+    ->prefix('staff')
+    ->name('staff.')
+    ->group(function () {
+        Route::get('/orders',        [StaffOrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/{order}',[StaffOrderController::class, 'show'])->name('orders.show');
+    });
