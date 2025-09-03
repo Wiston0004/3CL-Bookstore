@@ -194,7 +194,7 @@ class OrderController extends Controller
         $user = auth()->user();
         if (! $user) abort(401);
 
-        // ✅ allow staff too
+        // allow staff too
         if (in_array($user->role, ['admin','staff'], true)) return;
 
         if ($order->user_id === $user->id) return;
