@@ -19,6 +19,12 @@
     <p class="muted">All payments & refunds</p>
     <a class="btn" href="{{ route('manager.transactions.index') }}">View Transactions</a>
   </div>
+
+    <div class="card center">
+    <h3 style="margin-top:0">Sales Report</h3>
+    <p class="muted">Revenue, orders & top books</p>
+    <a class="btn primary" href="{{ route('manager.reports.sales') }}">View Sales</a>
+  </div>
 </div>
 
   

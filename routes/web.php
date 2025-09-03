@@ -13,7 +13,7 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\Manager\TransactionController as ManagerTransactionController;
 use App\Http\Controllers\Staff\OrderController as StaffOrderController;
-
+use App\Http\Controllers\Manager\SalesReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -109,6 +109,11 @@ Route::get('/catalog/{book}', [BookController::class, 'customerShow'])->name('cu
 // Reviews
 Route::middleware('auth')->group(function () {
     Route::post('/catalog/{book}/reviews', [ReviewController::class, 'store'])->name('reviews.store');
+});
+
+Route::middleware(['auth'/*,'role:manager'*/])->group(function () {
+    Route::get('/manager/reports/sales', [SalesReportController::class, 'index'])
+         ->name('manager.reports.sales');
 });
 
 /*
