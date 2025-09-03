@@ -1,136 +1,168 @@
-{{-- resources/views/profile/edit.blade.php --}}
 @extends('layouts.app')
-
-@section('header')
-  <h2 class="font-semibold text-xl text-gray-800 leading-tight">My Profile</h2>
-@endsection
+@section('title','My Profile')
 
 @section('content')
-<div class="py-6">
-  <div class="max-w-3xl mx-auto sm:px-6 lg:px-8 space-y-4">
+@php
+  // Fallback in case controller didn't pass $editable
+  $editable = $editable ?? (
+      $user->role === 'customer'
+      ? ['name','username','email','phone','address','avatar','password']
+      : ['username','phone','address','avatar','password']
+  );
+@endphp
 
-    {{-- Flash messages --}}
-    @if(session('ok'))
-      <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">{{ session('ok') }}</div>
-    @endif
-    @if(session('err'))
-      <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">{{ session('err') }}</div>
-    @endif
-
-    @php $u = $user ?? auth()->user(); @endphp
-
-    {{-- Staff notice --}}
-    @if($u->role === 'staff')
-      <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
-        Staff can update profile details except <strong>name</strong> and <strong>email</strong> (set by Manager).
+<div class="card" style="max-width:880px;margin:0 auto">
+  <div class="row">
+    <div class="row" style="gap:10px">
+      <img src="{{ $user->avatar_path ? asset('storage/'.$user->avatar_path) : 'https://via.placeholder.com/64x64?text=👤' }}"
+           alt="avatar" style="height:64px;width:64px;border-radius:12px;border:1px solid #2a3263;object-fit:cover" id="avatarPreview">
+      <div>
+        <h3 style="margin:0">{{ $user->name }} <span class="pill">{{ $user->role }}</span></h3>
+        <div class="muted">
+          @if($user->role==='customer') Points: <b>{{ $user->points }}</b> · @endif
+          Joined {{ $user->created_at->format('Y-m-d') }}
+        </div>
       </div>
+    </div>
+    <a class="pill right" href="{{ route($user->role.'.dashboard') }}">Back</a>
+  </div>
+
+  {{-- Tabs --}}
+  <div class="row mt">
+    <button class="pill" data-tab="account">Account</button>
+    <button class="pill" data-tab="security">Security</button>
+    <button class="pill" data-tab="avatar">Avatar</button>
+  </div>
+
+  <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="mt">
+    @csrf
+
+    @if ($errors->any())
+      <div class="muted" style="color:#fca5a5">{{ implode(', ', $errors->all()) }}</div>
+    @endif
+    @if(session('flash.success'))
+      <div class="muted">{{ session('flash.success') }}</div>
     @endif
 
-    {{-- Customer notice --}}
-    @if($u->role === 'customer')
-      <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
-        Customers can update all profile fields below.
+    {{-- ACCOUNT TAB --}}
+    <div class="grid grid-2 tab tab-account">
+      <div>
+        <label>Name</label>
+        @if(in_array('name',$editable))
+          <input class="input" name="name" value="{{ old('name',$user->name) }}" required>
+        @else
+          <input class="input" value="{{ $user->name }}" disabled>
+        @endif
       </div>
-    @endif
-
-    <div class="bg-white shadow rounded p-6">
-      <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data" class="space-y-5">
-        @csrf
-
-        {{-- Avatar --}}
-        <div class="flex items-center gap-4">
-          <div class="w-16 h-16 rounded-full overflow-hidden bg-gray-100">
-            @if($u->avatar_path)
-              <img src="{{ asset('storage/'.$u->avatar_path) }}" alt="avatar" class="w-16 h-16 object-cover">
-            @else
-              <div class="w-full h-full flex items-center justify-center text-gray-400">No Avatar</div>
-            @endif
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Avatar</label>
-            <input type="file" name="avatar" accept="image/*" class="block w-full text-sm">
-            @error('avatar') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
-          </div>
-        </div>
-
-        {{-- Name --}}
-        <div>
-          <label class="block text-sm font-medium mb-1">Name</label>
-          <input
-            type="text"
-            name="name"
-            value="{{ old('name', $u->name) }}"
-            @if($u->role !== 'customer') readonly @endif
-            class="w-full border rounded px-3 py-2 @if($u->role !== 'customer') bg-gray-100 cursor-not-allowed @endif"
-          >
-          @error('name') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
-          @if($u->role === 'staff')
-            <div class="text-xs text-gray-500 mt-1">Staff name is maintained by Manager.</div>
-          @endif
-        </div>
-
-        {{-- Email --}}
-        <div>
-          <label class="block text-sm font-medium mb-1">Email</label>
-          <input
-            type="email"
-            name="email"
-            value="{{ old('email', $u->email) }}"
-            @if($u->role !== 'customer') readonly @endif
-            class="w-full border rounded px-3 py-2 @if($u->role !== 'customer') bg-gray-100 cursor-not-allowed @endif"
-          >
-          @error('email') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
-          @if($u->role === 'staff')
-            <div class="text-xs text-gray-500 mt-1">Staff email is maintained by Manager.</div>
-          @endif
-        </div>
-
-        {{-- Phone --}}
-        <div>
-          <label class="block text-sm font-medium mb-1">Phone</label>
-          <input
-            type="text"
-            name="phone"
-            value="{{ old('phone', $u->phone) }}"
-            class="w-full border rounded px-3 py-2"
-            placeholder="+60-xxx-xxx"
-          >
-          @error('phone') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
-        </div>
-
-        {{-- Address --}}
-        <div>
-          <label class="block text-sm font-medium mb-1">Address</label>
-          <input
-            type="text"
-            name="address"
-            value="{{ old('address', $u->address) }}"
-            class="w-full border rounded px-3 py-2"
-            placeholder="Street, City, State"
-          >
-          @error('address') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
-        </div>
-
-        {{-- Password --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">New Password</label>
-            <input type="password" name="password" class="w-full border rounded px-3 py-2" placeholder="Leave blank to keep current">
-            @error('password') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Confirm New Password</label>
-            <input type="password" name="password_confirmation" class="w-full border rounded px-3 py-2">
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-3 pt-2">
-          <a href="{{ url()->previous() }}" class="px-4 py-2 border rounded">Cancel</a>
-          <button class="px-4 py-2 bg-indigo-600 text-white rounded">Save Changes</button>
-        </div>
-      </form>
+      <div>
+        <label>Username</label>
+        @if(in_array('username',$editable))
+          <input class="input" name="username" value="{{ old('username',$user->username) }}" required>
+        @else
+          <input class="input" value="{{ $user->username }}" disabled>
+        @endif
+      </div>
+      <div>
+        <label>Email</label>
+        @if(in_array('email',$editable))
+          <input class="input" type="email" name="email" value="{{ old('email',$user->email) }}" required>
+        @else
+          <input class="input" type="email" value="{{ $user->email }}" disabled>
+        @endif
+      </div>
+      <div>
+        <label>Phone</label>
+        @if(in_array('phone',$editable))
+          <input class="input" name="phone" value="{{ old('phone',$user->phone) }}">
+        @else
+          <input class="input" value="{{ $user->phone }}" disabled>
+        @endif
+      </div>
+      <div style="grid-column:1/-1">
+        <label>Address</label>
+        @if(in_array('address',$editable))
+          <input class="input" name="address" value="{{ old('address',$user->address) }}">
+        @else
+          <input class="input" value="{{ $user->address }}" disabled>
+        @endif
+      </div>
     </div>
 
-  </div>
+    {{-- SECURITY TAB --}}
+    <div class="grid grid-2 tab tab-security" style="display:none">
+      <div>
+        <label>New Password</label>
+        @if(in_array('password',$editable))
+          <input class="input" type="password" name="password" id="pw" autocomplete="new-password">
+          <div class="muted" id="pwMeter">Strength: —</div>
+        @else
+          <input class="input" type="password" value="********" disabled>
+        @endif
+      </div>
+      <div>
+        <label>Confirm Password</label>
+        @if(in_array('password',$editable))
+          <input class="input" type="password" name="password_confirmation" autocomplete="new-password">
+        @else
+          <input class="input" type="password" value="********" disabled>
+        @endif
+      </div>
+    </div>
+
+    {{-- AVATAR TAB --}}
+    <div class="grid tab tab-avatar" style="display:none">
+      <div>
+        <label>Avatar</label>
+        @if(in_array('avatar',$editable))
+          <input class="input" type="file" name="avatar" accept="image/*" id="avatarInput">
+          @if($user->avatar_path)
+            <label class="row mt">
+              <input type="checkbox" name="remove_avatar" value="1">
+              <span class="muted">Remove current avatar</span>
+            </label>
+          @endif
+        @else
+          <input class="input" value="No changes allowed" disabled>
+        @endif
+      </div>
+    </div>
+
+    <div class="row mt">
+      <button class="btn success">Save Changes</button>
+    </div>
+  </form>
 </div>
+
+<script>
+  // tabs
+  const tabs = document.querySelectorAll('[data-tab]');
+  const panels = {
+    account:  document.querySelector('.tab-account'),
+    security: document.querySelector('.tab-security'),
+    avatar:   document.querySelector('.tab-avatar'),
+  };
+  function showTab(name){
+    Object.values(panels).forEach(el => el.style.display='none');
+    panels[name].style.display='';
+    tabs.forEach(b=> b.classList.toggle('primary', b.getAttribute('data-tab')===name));
+  }
+  tabs.forEach(b => b.addEventListener('click', ()=> showTab(b.getAttribute('data-tab'))));
+  showTab('account');
+
+  // avatar preview
+  const input = document.getElementById('avatarInput');
+  if (input) input.addEventListener('change', e => {
+    const file = e.target.files?.[0]; if(!file) return;
+    document.getElementById('avatarPreview').src = URL.createObjectURL(file);
+  });
+
+  // simple password meter
+  const pw = document.getElementById('pw');
+  if (pw) pw.addEventListener('input', ()=>{
+    const v = pw.value || '';
+    let s = 0; if (v.length>=8) s++; if (/[a-z]/.test(v)&&/[A-Z]/.test(v)) s++; if (/\d/.test(v)) s++; if (/\W/.test(v)) s++;
+    const labels = ['—','Weak','Okay','Good','Strong'];
+    document.getElementById('pwMeter').textContent = 'Strength: '+labels[s];
+  });
+</script>
 @endsection

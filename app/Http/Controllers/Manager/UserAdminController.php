@@ -4,63 +4,156 @@ namespace App\Http\Controllers\Manager;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-
-/**
- * @method static \Illuminate\Routing\Controller middleware($middleware, array $options = [])
- */
+use Illuminate\Validation\Rules\Password;
 
 class UserAdminController extends Controller
 {
     public function __construct()
     {
-        // Routes already have auth + role:manager middleware; this is just defense-in-depth.
-        $this->middleware('auth');
+        $this->middleware(['auth','role:manager']);
     }
 
-    /**
-     * List users with:
-     * - filter by role (manager|staff|customer)
-     * - sort by id or name (asc|desc)
-     * - simple search (name/email)
-     */
+    /** List with search / role filter / sort / per-page (no status/trashed). */
     public function index(Request $request)
     {
-        $q = User::query();
+        $users = $this->filteredQuery($request)
+            ->paginate($this->perPage($request))
+            ->withQueryString();
 
-        // --- filter by role ---
-        if ($role = $request->input('role')) {
+        $counts = [
+            'staff'    => User::where('role','staff')->count(),
+            'customer' => User::where('role','customer')->count(),
+        ];
+
+        return view('manager.users.index', [
+            'users'   => $users,
+            'search'  => trim((string) $request->input('search','')),
+            'role'    => $this->role($request),
+            'sort'    => $this->sort($request),
+            'dir'     => $this->dir($request),
+            'perPage' => $this->perPage($request),
+            'counts'  => $counts,
+        ]);
+    }
+
+    public function create()
+    {
+        return view('manager.users.create');
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'role'                  => ['required','in:staff,customer'],
+            'name'                  => ['required','string','max:100'],
+            'username'              => ['required','alpha_num','min:4','max:30','unique:users,username'],
+            'email'                 => ['required','email','max:255','unique:users,email'],
+            'password'              => ['required','confirmed', Password::min(8)->letters()->numbers()->mixedCase()],
+            'phone'                 => ['nullable','string','max:20'],
+            'address'               => ['nullable','string','max:255'],
+            'points'                => ['nullable','integer','min:0'],
+        ]);
+
+        User::create($data); // password hashed via cast/mutator
+
+        return redirect()->route('manager.users.index')
+            ->with('flash.success','User created.');
+    }
+
+    public function edit(User $user)
+    {
+        abort_if($user->role === 'manager', 403);
+        return view('manager.users.edit', compact('user'));
+    }
+
+    public function update(Request $request, User $user)
+    {
+        abort_if($user->role === 'manager', 403);
+
+        $data = $request->validate([
+            'role'                  => ['required','in:staff,customer'],
+            'name'                  => ['required','string','max:100'],
+            'username'              => ['required','alpha_num','min:4','max:30',"unique:users,username,{$user->id}"],
+            'email'                 => ['required','email','max:255',"unique:users,email,{$user->id}"],
+            'password'              => ['nullable','confirmed','min:8'],
+            'phone'                 => ['nullable','string','max:20'],
+            'address'               => ['nullable','string','max:255'],
+            'points'                => ['nullable','integer','min:0'],
+        ]);
+
+        if (empty($data['password'])) unset($data['password']);
+
+        $user->update($data);
+
+        return back()->with('flash.success','User updated.');
+    }
+
+    /** CSV export that respects current filters. */
+    public function export(Request $request)
+    {
+        $rows = $this->filteredQuery($request)->get([
+            'id','role','name','username','email','phone','address','points','created_at'
+        ]);
+
+        $filename = 'users_export_'.now()->format('Ymd_His').'.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['id','role','name','username','email','phone','address','points','created_at']);
+            foreach ($rows as $u) {
+                fputcsv($out, [
+                    $u->id, $u->role, $u->name, $u->username, $u->email,
+                    $u->phone, $u->address, $u->points, $u->created_at
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    /* -------------- helpers -------------- */
+
+    private function filteredQuery(Request $r): Builder
+    {
+        $q = User::query()->whereIn('role',['staff','customer']);
+
+        if ($role = $this->role($r)) {
             $q->where('role', $role);
         }
 
-        // --- search (name/email) ---
-        if ($search = trim((string)$request->input('search', ''))) {
-            $q->where(function ($x) use ($search) {
-                $x->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+        if ($search = trim((string) $r->input('search',''))) {
+            $q->where(function ($w) use ($search) {
+                $w->where('username','like',"%{$search}%")
+                  ->orWhere('email','like',"%{$search}%")
+                  ->orWhere('name','like',"%{$search}%");
             });
         }
 
-        // --- sort (id|name) ---
-        $allowedSort = ['id', 'name'];
-        $sort = in_array($request->input('sort'), $allowedSort, true)
-            ? $request->input('sort')
-            : 'id';
-
-        $dir = $request->input('dir') === 'asc' ? 'asc' : 'desc';
-
-        $users = $q->orderBy($sort, $dir)
-                   ->paginate(20)
-                   ->withQueryString();
-
-        return view('manager.users.index', compact('users', 'sort', 'dir'));
+        return $q->orderBy($this->sort($r), $this->dir($r))
+                 ->orderBy('id','desc');
     }
 
-    // Resource placeholders (not used; route resource() was provided)
-    public function create() { abort(404); }
-    public function store(Request $request) { abort(404); }
-    public function show(User $user) { abort(404); }
-    public function edit(User $user) { abort(404); }
-    public function update(Request $request, User $user) { abort(404); }
-    public function destroy(User $user) { abort(404); }
+    private function role(Request $r): ?string
+    {
+        $role = $r->input('role');
+        return in_array($role, ['staff','customer'], true) ? $role : null;
+    }
+
+    private function sort(Request $r): string
+    {
+        $s = $r->input('sort','id');
+        return in_array($s, ['id','name','created_at'], true) ? $s : 'id';
+    }
+
+    private function dir(Request $r): string
+    {
+        return $r->input('dir') === 'asc' ? 'asc' : 'desc';
+    }
+
+    private function perPage(Request $r): int
+    {
+        $pp = (int) $r->input('perPage', 12);
+        return in_array($pp, [10,12,25,50,100], true) ? $pp : 12;
+    }
 }

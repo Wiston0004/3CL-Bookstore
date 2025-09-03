@@ -3,7 +3,13 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\EnsureRole;   // <-- add this import
+
+// ✅ your custom role middleware
+use App\Http\Middleware\EnsureRole;
+
+// (recommended) add common aliases so they're available by name
+use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\RedirectIfAuthenticated;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,18 +18,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Register route-middleware aliases (Laravel 11/12)
+        // Route middleware aliases
         $middleware->alias([
-            'role' => EnsureRole::class,   // now you can use ->middleware('role:manager')
-        ]);
+            // built-ins you likely use in routes
+            'auth'             => Authenticate::class,
+            'guest'            => RedirectIfAuthenticated::class,
+            'password.confirm' => \Illuminate\Auth\Middleware\RequirePassword::class,
+            'signed'           => \Illuminate\Routing\Middleware\ValidateSignature::class,
+            'throttle'         => \Illuminate\Routing\Middleware\ThrottleRequests::class,
+            'verified'         => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+            'can'              => \Illuminate\Auth\Middleware\Authorize::class,
 
-        // (Optional) if you created your own versions of these and want to alias them:
-        // use App\Http\Middleware\Authenticate;
-        // use App\Http\Middleware\RedirectIfAuthenticated;
-        // $middleware->alias([
-        //     'auth'  => Authenticate::class,
-        //     'guest' => RedirectIfAuthenticated::class,
-        // ]);
+            // ✅ custom
+            'role'             => EnsureRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
