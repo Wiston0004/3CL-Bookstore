@@ -203,39 +203,41 @@
 
 
       {{-- Discount / Notes --}}
-     @php
-      $userPoints = (int) ($userPoints ?? (auth()->user()->points ?? 0));
-      $pointsRM   = $userPoints / 100;
-    @endphp
+     {{-- 🪙 Rewards --}}
+@php
+  $userPoints = (int) ($userPoints ?? (auth()->user()->points ?? 0));
+  $pointsRM   = $userPoints / 100;
+@endphp
 
-    <div class="card">
-      <h3 style="margin:0 0 8px">🪙 Rewards</h3>
+<div class="card">
+  <h3 style="margin:0 0 8px">🪙 Rewards</h3>
 
-      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
-        {{-- send 0 when unchecked so controller gets a boolean --}}
-        <input type="hidden" name="use_points" value="0">
-        <label class="radio-card" style="cursor:pointer">
-          <input type="checkbox"
-                id="use_points"
-                name="use_points"
-                value="1"
-                {{ old('use_points') ? 'checked' : '' }}
-                data-points="{{ $userPoints }}"
-                data-rm="{{ number_format($pointsRM, 2, '.', '') }}">
-          <div>
-            <div><strong>Use my points</strong></div>
-            <div class="muted-sm">
-              You have <strong>{{ number_format($userPoints) }}</strong> points (~ RM {{ number_format($pointsRM,2) }}).
-            </div>
-          </div>
-        </label>
+  <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+    <input type="hidden" name="use_points" value="0">
+    <label class="radio-card" style="cursor:pointer">
+      <input type="checkbox"
+             id="use_points"
+             name="use_points"
+             value="1"
+             {{ old('use_points') ? 'checked' : '' }}
+             data-points="{{ $userPoints }}">
+      <div>
+        <div><strong>Use my points</strong></div>
+        <div class="muted-sm">
+          You have <strong>{{ number_format($userPoints) }}</strong> points.
+        </div>
+        {{-- 🔽 live hint goes here --}}
+        <div id="ptsSpendHint" class="muted-sm" style="margin-top:4px"></div>
       </div>
+    </label>
+  </div>
 
-      <div class="mt">
-        <label class="field-label">Order Notes (optional)</label>
-        <input name="order_note" class="input" placeholder="Message for the seller…" value="{{ old('order_note') }}">
-      </div>
-    </div>
+  <div class="mt">
+    <label class="field-label">Order Notes (optional)</label>
+    <input name="order_note" class="input" placeholder="Message for the seller…" value="{{ old('order_note') }}">
+  </div>
+</div>
+
 
       {{-- Footer actions --}}
       <div class="row" style="justify-content:flex-end; gap:8px; flex-wrap:wrap">
@@ -323,6 +325,8 @@
     const discOut         = document.getElementById('sumDiscount');
     const totalOut        = document.getElementById('sumTotal');
     const usePointsEl     = document.getElementById('use_points');
+    const hintEl          = document.getElementById('ptsSpendHint');
+    const PTS_PER_RM      = 100; // 100 pts = RM 1
 
     const shipPrices = {
       standard: parseFloat(document.querySelector('[data-ship="standard"]').textContent || '5.00'),
@@ -335,23 +339,42 @@
     }
 
     function recalc() {
-      const ship     = currentShip();
-      const ptsRM    = parseFloat(usePointsEl?.dataset.rm || '0');
-      const wantsPts = !!(usePointsEl && usePointsEl.checked);
+      const ship      = currentShip();
+      const ptsAvail  = parseInt(usePointsEl?.dataset.points || '0', 10);
+      const wantsPts  = !!(usePointsEl && usePointsEl.checked);
 
-      const discount = wantsPts ? Math.min(ptsRM, subtotal + ship) : 0;
-      const total    = Math.max(0, subtotal + ship - discount);
+      // Max points based on current order value (subtotal + shipping)
+      const maxByTotalPts = Math.round((subtotal + ship) * PTS_PER_RM);
+      const ptsToSpend    = wantsPts ? Math.min(ptsAvail, maxByTotalPts) : 0;
 
-      shipOut.textContent         = ship.toFixed(2);
-      shipInputHidden.value       = ship.toFixed(2);
-      discOut.textContent         = discount.toFixed(2);
-      totalOut.textContent        = total.toFixed(2);
+      const discountRM = ptsToSpend / PTS_PER_RM;
+      const totalRM    = Math.max(0, subtotal + ship - discountRM);
+
+      // Write numbers to summary
+      shipOut.textContent   = ship.toFixed(2);
+      shipInputHidden.value = ship.toFixed(2);
+      discOut.textContent   = discountRM.toFixed(2);
+      totalOut.textContent  = totalRM.toFixed(2);
+
+      // Update the live hint
+      if (hintEl) {
+        if (wantsPts && ptsToSpend > 0) {
+          hintEl.textContent =
+            `You will spend ${ptsToSpend.toLocaleString()} pts (RM ${discountRM.toFixed(2)}) on this order.`;
+        } else {
+          const maxRM = (ptsAvail / PTS_PER_RM).toFixed(2);
+          hintEl.textContent =
+            `You can spend up to ${ptsAvail.toLocaleString()} pts (RM ${maxRM}).`;
+        }
+      }
     }
 
     document.querySelectorAll('input[name="shipping_method"]').forEach(r => r.addEventListener('change', recalc));
     if (usePointsEl) usePointsEl.addEventListener('change', recalc);
+
     recalc();
   })();
 </script>
+
 
 @endsection
