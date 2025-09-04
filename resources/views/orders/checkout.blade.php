@@ -203,19 +203,39 @@
 
 
       {{-- Discount / Notes --}}
-      <div class="card">
-        <h3 style="margin:0 0 8px">🎟️ Discounts & Notes</h3>
-        <div class="row" style="gap:10px; flex-wrap:wrap">
+     @php
+      $userPoints = (int) ($userPoints ?? (auth()->user()->points ?? 0));
+      $pointsRM   = $userPoints / 100;
+    @endphp
+
+    <div class="card">
+      <h3 style="margin:0 0 8px">🪙 Rewards</h3>
+
+      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+        {{-- send 0 when unchecked so controller gets a boolean --}}
+        <input type="hidden" name="use_points" value="0">
+        <label class="radio-card" style="cursor:pointer">
+          <input type="checkbox"
+                id="use_points"
+                name="use_points"
+                value="1"
+                {{ old('use_points') ? 'checked' : '' }}
+                data-points="{{ $userPoints }}"
+                data-rm="{{ number_format($pointsRM, 2, '.', '') }}">
           <div>
-            <label class="field-label">Discount (RM)</label>
-            <input type="number" name="discount_amount" id="discount_amount" step="0.01" min="0" class="input" value="{{ old('discount_amount','0.00') }}" style="max-width:160px">
+            <div><strong>Use my points</strong></div>
+            <div class="muted-sm">
+              You have <strong>{{ number_format($userPoints) }}</strong> points (~ RM {{ number_format($pointsRM,2) }}).
+            </div>
           </div>
-          <div style="flex:1;min-width:240px">
-            <label class="field-label">Order Notes (optional)</label>
-            <input name="order_note" class="input" placeholder="Message for the seller…" value="{{ old('order_note') }}">
-          </div>
-        </div>
+        </label>
       </div>
+
+      <div class="mt">
+        <label class="field-label">Order Notes (optional)</label>
+        <input name="order_note" class="input" placeholder="Message for the seller…" value="{{ old('order_note') }}">
+      </div>
+    </div>
 
       {{-- Footer actions --}}
       <div class="row" style="justify-content:flex-end; gap:8px; flex-wrap:wrap">
@@ -271,9 +291,10 @@
             <span>RM <span id="sumShipping">5.00</span></span>
           </div>
           <div class="row" style="justify-content:space-between; margin-top:6px">
-            <span class="muted">Discount</span>
-            <span>− RM <span id="sumDiscount">{{ number_format((float)old('discount_amount',0),2) }}</span></span>
+            <span class="muted">Points Redeemed</span>
+            <span>− RM <span id="sumDiscount">0.00</span></span>
           </div>
+
 
           <div class="row" style="justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid #1c2346">
             <strong>Total</strong>
@@ -295,30 +316,13 @@
 </div>
 
 <script>
-  // Payment method sections
   (function () {
-    const pm   = document.getElementById('payment_method');
-    const secE = document.getElementById('pm-ewallet');
-    const secC = document.getElementById('pm-card');
-    const secB = document.getElementById('pm-bank');
-    function togglePM(){
-      const v = pm.value;
-      secE.classList.toggle('hidden', v !== 'E-Wallet');
-      secC.classList.toggle('hidden', v !== 'Credit Card');
-      secB.classList.toggle('hidden', v !== 'Bank Transfer');
-    }
-    pm.addEventListener('change', togglePM);
-    togglePM();
-  })();
-
-  // Live totals (shipping + discount)
-  (function () {
-    const subtotal = parseFloat(@json($subtotal));
+    const subtotal        = parseFloat(@json($subtotal));
     const shipInputHidden = document.getElementById('shipping_amount');
-    const shipOut = document.getElementById('sumShipping');
-    const discIn  = document.getElementById('discount_amount');
-    const discOut = document.getElementById('sumDiscount');
-    const totalOut= document.getElementById('sumTotal');
+    const shipOut         = document.getElementById('sumShipping');
+    const discOut         = document.getElementById('sumDiscount');
+    const totalOut        = document.getElementById('sumTotal');
+    const usePointsEl     = document.getElementById('use_points');
 
     const shipPrices = {
       standard: parseFloat(document.querySelector('[data-ship="standard"]').textContent || '5.00'),
@@ -331,19 +335,23 @@
     }
 
     function recalc() {
-      const ship = currentShip();
-      const disc = Math.max(0, parseFloat(discIn.value || '0'));
-      const total = Math.max(0, subtotal + ship - disc);
+      const ship     = currentShip();
+      const ptsRM    = parseFloat(usePointsEl?.dataset.rm || '0');
+      const wantsPts = !!(usePointsEl && usePointsEl.checked);
 
-      shipOut.textContent = ship.toFixed(2);
-      shipInputHidden.value = ship.toFixed(2);
-      discOut.textContent = disc.toFixed(2);
-      totalOut.textContent = total.toFixed(2);
+      const discount = wantsPts ? Math.min(ptsRM, subtotal + ship) : 0;
+      const total    = Math.max(0, subtotal + ship - discount);
+
+      shipOut.textContent         = ship.toFixed(2);
+      shipInputHidden.value       = ship.toFixed(2);
+      discOut.textContent         = discount.toFixed(2);
+      totalOut.textContent        = total.toFixed(2);
     }
 
     document.querySelectorAll('input[name="shipping_method"]').forEach(r => r.addEventListener('change', recalc));
-    discIn.addEventListener('input', recalc);
+    if (usePointsEl) usePointsEl.addEventListener('change', recalc);
     recalc();
   })();
 </script>
+
 @endsection

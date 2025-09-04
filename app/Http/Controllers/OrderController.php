@@ -54,7 +54,7 @@ class OrderController extends Controller
         return view('orders.show', compact('order'));
     }
 
-    // app/Http/Controllers/OrderController.php
+  
     public function showCheckout()
     {
         $items = \App\Models\CartItem::with('book')
@@ -65,25 +65,27 @@ class OrderController extends Controller
         }
 
         $subtotal    = $items->sum(fn($i) => $i->quantity * ($i->book->price ?? 0));
-        $userAddress = optional(auth()->user())->address;   // <-- from users.address
+        $user        = auth()->user();
+        $userAddress = $user->address ?? '';
+        $userPoints  = (int) ($user->points ?? 0); // <-- points column on users table
 
-        return view('orders.checkout', compact('items','subtotal','userAddress'));
+        return view('orders.checkout', compact('items','subtotal','userAddress','userPoints'));
     }
 
 
-    // Cart → Order (Make Payment)
+
     public function checkout(Request $req)
     {
         $req->validate([
             'payment_method'   => ['required','string','max:100'],
             'shipping_address' => ['required','string','max:2000'],
-            'discount_amount'  => ['nullable','numeric','min:0'],
-            'shipping_method'  => ['nullable','in:standard,express'], // optional if you submit it
-            'shipping_amount'  => ['nullable','numeric','min:0'],     // from your hidden field
-            'order_note'       => ['nullable','string','max:2000'],   // your input name
+            'shipping_method'  => ['nullable','in:standard,express'],
+            'shipping_amount'  => ['nullable','numeric','min:0'],
+            'order_note'       => ['nullable','string','max:2000'],
+            'use_points'       => ['sometimes','boolean'],
         ]);
 
-        $manager  = app(PaymentManager::class);
+        $manager  = app(\App\Payments\PaymentManager::class);
         $strategy = $manager->resolve($req->payment_method);
         $strategy->validate($req);
 
@@ -93,26 +95,36 @@ class OrderController extends Controller
             return redirect()->route('cart.index')->with('err','Your cart is empty.');
         }
 
-        $discount = (float) $req->input('discount_amount', 0);
         $shipping = (float) $req->input('shipping_amount', 0);
 
-        $order = DB::transaction(function () use ($userId, $items, $req, $discount, $shipping, $strategy) {
+        $order = DB::transaction(function () use ($userId, $items, $req, $shipping, $strategy) {
+            // lock user to avoid race conditions while spending points
+            $user = \App\Models\User::lockForUpdate()->findOrFail($userId);
+
             $subtotal = $items->sum(fn($i) => $i->quantity * ($i->book->price ?? 0));
-            $total    = max(0, $subtotal + $shipping - $discount);
+            $preTotal = $subtotal + $shipping;
+
+            // points are whole points; 100 points = RM1
+            $availablePoints   = (int) ($user->points ?? 0);
+            $maxRedeemablePts  = (int) round($preTotal * 100);           // total in "points"
+            $willUsePoints     = (bool) $req->boolean('use_points');
+            $pointsUsed        = $willUsePoints ? min($availablePoints, $maxRedeemablePts) : 0;
+            $discount          = $pointsUsed / 100.0;
+            $total             = max(0, $preTotal - $discount);
 
             $order = Order::create([
                 'user_id'         => $userId,
                 'order_date'      => now(),
                 'status'          => Order::STATUS_PROCESSING,
                 'subtotal_amount' => $subtotal,
-                'discount_amount' => $discount,
-                'shipping_amount' => $shipping,
+                'discount_amount' => $discount,    // <-- value of points used in RM
+                'shipping_amount' => $shipping,    // (make sure column exists)
                 'total_amount'    => $total,
                 'payment_method'  => $req->payment_method,
-                'notes'           => $req->input('order_note'), // map your field name to the column
+                'notes'           => $req->input('order_note'),
             ]);
 
-            // ---- write items + stock reservation (same as before) ----
+            // Items + stock movement
             foreach ($items as $ci) {
                 $book = Book::lockForUpdate()->find($ci->book_id);
                 if (!$book) abort(400, "Book #{$ci->book_id} not found");
@@ -128,24 +140,30 @@ class OrderController extends Controller
                 $book->decrement('stock', $ci->quantity);
 
                 DB::table('stock_movements')->insert([
-                    'book_id' => $book->id,
-                    'user_id' => $userId,
-                    'type' => 'sale',
-                    'quantity_change' => -$ci->quantity,
-                    'reason' => 'Order #'.$order->id,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'book_id'          => $book->id,
+                    'user_id'          => $userId,
+                    'type'             => 'sale',
+                    'quantity_change'  => -$ci->quantity,
+                    'reason'           => 'Order #'.$order->id,
+                    'created_at'       => now(),
+                    'updated_at'       => now(),
                 ]);
             }
 
-            // shipment row (address)
+            // shipment row
             Shipment::create([
-                'order_id' => $order->id,
+                'order_id'         => $order->id,
                 'shipping_address' => $req->shipping_address,
             ]);
 
-            // charge full total (includes shipping)
+            // charge (total already includes shipping - discount)
             $strategy->charge($order, $total, $req->all());
+
+            // deduct points used
+            if ($pointsUsed > 0) {
+                $user->decrement('points', $pointsUsed);
+                // Optional: record points redemption as a transaction note/event
+            }
 
             CartItem::where('user_id', $userId)->delete();
 
@@ -154,6 +172,7 @@ class OrderController extends Controller
 
         return redirect()->route('orders.show', $order)->with('ok','Payment successful. Order created.');
     }
+
 
 
     // ===== State transitions (example endpoints) =====

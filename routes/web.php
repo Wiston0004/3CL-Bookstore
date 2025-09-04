@@ -109,6 +109,8 @@ Route::middleware(['auth','role:staff,customer'])->group(function () {
     Route::get( '/orders',                  [OrderController::class, 'index'])->name('orders.index');
     Route::get( '/orders/{order}',          [OrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}/address', [OrderController::class, 'updateAddress'])->name('orders.address');
+    Route::patch('/orders/{order}/cancel',   [OrderController::class, 'cancel'])->name('orders.cancel');
+
 });
 
 // Order state transitions: staff or manager only
@@ -116,7 +118,6 @@ Route::middleware(['auth','role:staff,manager'])->group(function () {
     Route::patch('/orders/{order}/ship',     [OrderController::class, 'ship'])->name('orders.ship');
     Route::patch('/orders/{order}/arrive',   [OrderController::class, 'arrive'])->name('orders.arrive');
     Route::patch('/orders/{order}/complete', [OrderController::class, 'complete'])->name('orders.complete');
-    Route::patch('/orders/{order}/cancel',   [OrderController::class, 'cancel'])->name('orders.cancel');
 });
 
 /*
