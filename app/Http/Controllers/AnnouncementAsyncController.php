@@ -30,7 +30,7 @@ class AnnouncementAsyncController extends Controller
             'scheduled_at'=>now(),
         ]);
 
-        $recipients = User::when($r->filled('role'), fn($q)=>$q->where('role',$r->string('role')))
+        $recipients = User::when($r->filled('role'), fn($q)=>$q->where('role',$r->input('role')))
             ->get(['id','name','email','phone']);
 
         AnnouncementPublishJob::dispatch(

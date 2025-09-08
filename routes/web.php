@@ -40,13 +40,6 @@ Route::post('/logout',        [RoleLoginController::class, 'logout'])->name('log
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')->group(function () {
-    Route::get('/events',                 [EventController::class,'index'])->name('events.index');
-    Route::get('/events/create',          [EventController::class,'create'])->name('events.create');
-    Route::post('/events',                [EventController::class,'store'])->name('events.store');
-    Route::post('/events/{event}/cancel', [EventController::class,'cancel'])->name('events.cancel');
-    // Announcements (queued + pipeline)
-    Route::get('/announcements/create', [AnnController::class, 'create'])->name('ann.create');
-    Route::post('/announcements/queue', [AnnController::class, 'store'])->name('ann.queue');
     Route::view('/', 'dashboards.manager')->name('dashboard');
 
     // Users (no destroy, no bulk)
@@ -68,7 +61,7 @@ Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')-
 
 Route::middleware(['auth','role:staff'])->group(function () {
     Route::view('/staff', 'dashboards.staff')->name('staff.dashboard');
-    Route::get('/events',                 [EventController::class,'index'])->name('events.index');
+    Route::get('/events/index',                 [EventController::class,'index'])->name('events.index');
     Route::get('/events/create',          [EventController::class,'create'])->name('events.create');
     Route::post('/events',                [EventController::class,'store'])->name('events.store');
     Route::post('/events/{event}/cancel', [EventController::class,'cancel'])->name('events.cancel');

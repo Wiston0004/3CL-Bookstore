@@ -8,7 +8,7 @@
       <div class="card">
         <h3 style="margin:0 0 6px"><a href="{{ route('events.show',$e) }}">{{ $e->title }}</a></h3>
         <div class="muted">{{ $e->starts_at?->format('Y-m-d H:i') }} • {{ $e->status }}</div>
-        <p style="margin-top:8px">{{ Str::limit($e->description, 140) }}</p>
+         <p style="margin-top:8px">{{ \Illuminate\Support\Str::limit($e->description, 140) }}</p>
         <a class="btn" href="{{ route('events.show',$e) }}">View</a>
       </div>
     @empty

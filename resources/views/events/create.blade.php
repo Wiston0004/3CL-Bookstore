@@ -7,7 +7,7 @@
     @if($errors->any())
       <div class="muted">Please fix the errors below.</div>
     @endif
-    <form method="POST" action="{{ route('manager.events.store') }}" class="grid grid-2" style="gap:14px">
+    <form method="POST" action="{{ route('events.store') }}" class="grid grid-2" style="gap:14px">
       @csrf
       <div>
         <label>Title</label>

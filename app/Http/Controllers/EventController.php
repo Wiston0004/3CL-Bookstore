@@ -60,8 +60,8 @@ class EventController extends Controller
         // Command: schedule now
         ScheduleEventJob::dispatch($event->id);
 
-        // Command: announce at go-live using the Pipeline
-        $recipients = User::when($r->filled('target_role'), fn($q)=>$q->where('role',$r->string('target_role')))
+        //Optional recipients by role (for go-live announcement)
+        $recipients = User::when($r->filled('target_role'), fn($q)=>$q->where('role',$r->input('target_role')))
             ->get(['id','name','email','phone']);
 
         MakeEventLiveJob::dispatch($event->id, [
@@ -72,11 +72,11 @@ class EventController extends Controller
             'meta'=>['event_id'=>$event->id],
         ])->delay($event->starts_at);
 
-        return redirect()->route('manager.events.index')->with('ok','Event created & scheduled.');
+        return redirect()->route('events.index')->with('ok','Event created & scheduled.');
     }
 
     public function cancel(Event $event, Request $r){
-        CancelEventJob::dispatch($event->id, $r->string('reason'));
+        CancelEventJob::dispatch($event->id, $r->input('reason'));
         return back()->with('ok', 'Event cancellation queued.');
     }
 }
