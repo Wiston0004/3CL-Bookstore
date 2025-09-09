@@ -19,7 +19,7 @@ class UserAdminController extends Controller
     public function index(Request $request)
     {
         $users = $this->filteredQuery($request)
-            ->paginate($this->perPage($request))
+            ->simplePaginate($this->perPage($request))
             ->withQueryString();
 
         $counts = [
