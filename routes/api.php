@@ -6,7 +6,8 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\Api\Manager\UserController as ApiUserController;
-
+use App\Http\Controllers\Api\BookApiController;
+use App\Http\Controllers\Api\InventoryApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\OrderApiController;
 
@@ -33,14 +34,14 @@ Route::prefix('v1')->group(function () {
     });
 
     // Public (no login needed)
-    Route::get('/books', [BookController::class, 'apiIndex']);
-    Route::get('/books/{book}', [BookController::class, 'apiShow']);
+    Route::get('/books', [BookApiController::class, 'index']);
+    Route::get('/books/{book}', [BookApiController::class, 'show']);
 
     // Protected (need token)
     Route::middleware(['auth:sanctum'])->group(function () {
-        Route::post('/books', [BookController::class, 'apiStore']);
-        Route::put('/books/{book}', [BookController::class, 'apiUpdate']);
-        Route::delete('/books/{book}', [BookController::class, 'apiDestroy']);
+        Route::post('/books', [BookApiController::class, 'store']);
+        Route::put('/books/{book}', [BookApiController::class, 'update']);
+        Route::delete('/books/{book}', [BookApiController::class, 'destroy']);
     });
 
     // Reviews CRUD
@@ -50,8 +51,8 @@ Route::prefix('v1')->group(function () {
     Route::delete('/reviews/{review}', [ReviewController::class, 'apiDestroy']);
 
     // Inventory
-    Route::get('/inventory/{book}/stock', [InventoryController::class, 'apiStock']);
-    Route::post('/inventory/adjust', [InventoryController::class, 'apiAdjust']);
+    Route::get('/inventory/{book}/stock', [InventoryApiController::class, 'stock']);
+    Route::post('/inventory/adjust', [InventoryApiController::class, 'adjust']);
 });
 
 // JSON 404 fallback
