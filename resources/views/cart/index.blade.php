@@ -192,4 +192,52 @@
     });
   })();
 </script>
+<style>
+  /* White +/- buttons with subtle hover */
+  .qty-step{
+    color:#fff; 
+    background:linear-gradient(135deg,#4f46e5,#06b6d4);
+    border:none;
+    padding:8px 10px;
+    border-radius:10px;
+    cursor:pointer;
+    transition:transform .12s ease, opacity .12s ease;
+  }
+  .qty-step:hover{ transform:translateY(-1px) }
+  .qty-step:disabled{ opacity:.6; cursor:not-allowed }
+
+  /* Compact number input */
+  .qty-input{
+    width:64px;text-align:center;padding:6px 8px
+  }
+
+  /* Center the whole control inside the cell */
+  .qty-cell { text-align: center; }
+
+  /* Make the form itself inline and centered, stacked vertically */
+  .qty-form {
+    display: inline-flex;          /* allows centering via text-align on td */
+    flex-direction: column;        /* keep − / input / + in a column */
+    align-items: center;           /* center each child */
+    gap: 8px;
+  }
+
+  /* Nice, centered +/- buttons */
+  .qty-step{
+    display: inline-grid;
+    place-items: center;
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    border: 1px solid #2a3263;
+    background: linear-gradient(135deg,#4f46e5,#06b6d4);
+    color: #fff;                   /* white symbol */
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  /* Center number text */
+  .qty-input{ width: 70px; text-align: center; }
+</style>
+
 @endsection
