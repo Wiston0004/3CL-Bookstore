@@ -27,9 +27,7 @@
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
         <a href="{{ route('books.create', request()->query()) }}" class="btn primary">➕ Add Book</a>
-        <a href="{{ route('ann.create',  request()->query()) }}" class="btn">📚 Add announcement</a>
         <a href="{{ route('books.index',  request()->query()) }}" class="btn">📚 Inventory</a>
-        <a href="{{ route('events.index',  request()->query()) }}" class="btn">📚 Event</a>
         <a href="{{ route('books.index', array_merge(request()->query(), ['low' => request('low', $threshold)])) }}" class="pill">⚠️ Low Stock</a>
       </div>
     </div>

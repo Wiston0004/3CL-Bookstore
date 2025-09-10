@@ -62,20 +62,20 @@ Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')-
 Route::middleware(['auth','role:staff'])->group(function () {
     Route::view('/staff', 'dashboards.staff')->name('staff.dashboard');
     // Events CRUD
-    Route::get('/events', [EventController::class,'index'])->name('events.index');
-    Route::get('/events/create', [EventController::class,'create'])->name('events.create');
-    Route::post('/events', [EventController::class,'store'])->name('events.store');
-    Route::get('/events/{event}/edit', [EventController::class,'edit'])->name('events.edit');
-    Route::put('/events/{event}', [EventController::class,'update'])->name('events.update');
-    Route::delete('/events/{event}', [EventController::class,'destroy'])->name('events.destroy');
+    Route::get('staff/events', [EventController::class,'index'])->name('staff.events.index');
+    Route::get('staff/events/create', [EventController::class,'create'])->name('staff.events.create');
+    Route::post('staff/events', [EventController::class,'store'])->name('staff.events.store');
+    Route::get('staff/events/{event}/edit', [EventController::class,'edit'])->name('staff.events.edit');
+    Route::put('staff/events/{event}', [EventController::class,'update'])->name('staff.events.update');
+    Route::delete('staff/events/{event}', [EventController::class,'destroy'])->name('staff.events.destroy');
 
     // Announcements CRUD
-    Route::get('/announcements', [AnnouncementController::class,'index'])->name('ann.index');
-    Route::get('/announcements/create', [AnnouncementController::class,'create'])->name('ann.create');
-    Route::post('/announcements', [AnnouncementController::class,'store'])->name('ann.store');
-    Route::get('/announcements/{announcement}/edit', [AnnouncementController::class,'edit'])->name('ann.edit');
-    Route::put('/announcements/{announcement}', [AnnouncementController::class,'update'])->name('ann.update');
-    Route::delete('/announcements/{announcement}', [AnnouncementController::class,'destroy'])->name('ann.destroy');
+    Route::get('staff/announcements', [AnnouncementController::class,'index'])->name('staff.ann.index');
+    Route::get('staff/announcements/create', [AnnouncementController::class,'create'])->name('staff.ann.create');
+    Route::post('staff/announcements', [AnnouncementController::class,'store'])->name('staff.ann.store');
+    Route::get('staff/announcements/{announcement}/edit', [AnnouncementController::class,'edit'])->name('staff.ann.edit');
+    Route::put('staff/announcements/{announcement}', [AnnouncementController::class,'update'])->name('staff.ann.update');
+    Route::delete('staff/announcements/{announcement}', [AnnouncementController::class,'destroy'])->name('staff.ann.destroy');
     // Back-compat alias for old code using dashboard.staff
     Route::redirect('/dashboard/staff', '/staff')->name('dashboard.staff');
 });
