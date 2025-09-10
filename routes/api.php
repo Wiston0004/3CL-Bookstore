@@ -4,6 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Manager\UserController as ApiUserController;
 
+use App\Http\Controllers\Api\CartApiController;
+use App\Http\Controllers\Api\OrderApiController;
+
+
 Route::prefix('v1')->group(function () {
 
     // Health check
@@ -28,3 +32,26 @@ Route::prefix('v1')->group(function () {
 
 // JSON 404 fallback
 Route::fallback(fn () => response()->json(['message' => 'Not Found'], 404));
+
+Route::prefix('v1')->middleware('throttle:api')->group(function () {
+
+    // --- CART (customer) ---
+    Route::middleware('auth:sanctum')->name('api.cart.')->group(function () {
+        Route::get   ('/cart',           [CartApiController::class, 'index'])->name('index');
+        Route::post  ('/cart',           [CartApiController::class, 'store'])->name('store');     // add
+        Route::patch ('/cart/{cartItem}',[CartApiController::class, 'update'])->name('update');   // change qty
+        Route::delete('/cart/{cartItem}',[CartApiController::class, 'destroy'])->name('destroy'); // remove
+    });
+
+    // --- ORDERS (customer) ---
+    Route::middleware('auth:sanctum')->name('api.orders.')->group(function () {
+        Route::get   ('/orders',               [OrderApiController::class, 'index'])->name('index');
+        Route::post  ('/orders',               [OrderApiController::class, 'store'])->name('store'); // optional: direct create by items
+        Route::get   ('/orders/{order}',       [OrderApiController::class, 'show'])->name('show');
+        Route::patch ('/orders/{order}',       [OrderApiController::class, 'update'])->name('update'); // update address
+        Route::patch ('/orders/{order}/cancel',[OrderApiController::class, 'cancel'])->name('cancel'); // customer cancel if pending
+        // checkout (create order from current cart)
+        Route::post  ('/checkout',             [OrderApiController::class, 'checkout'])->name('checkout');
+    });
+
+});
