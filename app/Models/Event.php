@@ -2,35 +2,51 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'organizer_id','title','slug','description','type','delivery_mode',
-        'timezone','starts_at','ends_at','venue_name','address','lat','lng',
-        'join_url','visibility','target_segment_id','status','cancellation_reason',
-        'registration_required','max_attendees','banner_path','points_reward',
+        'title',
+        'slug',
+        'description',
+        'type',
+        'delivery_mode',
+        'starts_at',
+        'ends_at',
+        'visibility',
+        'status',
+        'points_reward',
+        'organizer_id',
+        'join_url',
+        'venue_name',
+        'address',
     ];
 
     protected $casts = [
-        'starts_at'=>'datetime','ends_at'=>'datetime',
-        'lat'=>'decimal:7','lng'=>'decimal:7',
-        'registration_required'=>'boolean','points_reward'=>'integer',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
     ];
 
-    public const DRAFT='draft';
-    public const SCHEDULED='scheduled';
-    public const LIVE='live';
-    public const COMPLETED='completed';
-    public const CANCELLED='cancelled';
+    // Status constants
+    public const DRAFT = 'draft';
+    public const SCHEDULED = 'scheduled';
+    public const LIVE = 'live';
+    public const COMPLETED = 'completed';
+    public const CANCELLED = 'cancelled';
 
-    public function organizer(){ return $this->belongsTo(User::class, 'organizer_id'); }
-    public function registrations(){ return $this->hasMany(EventRegistration::class); }
-    public function campaigns(){ return $this->hasMany(Campaign::class); }
+    // Relationships
+    public function organizer()
+    {
+        return $this->belongsTo(User::class, 'organizer_id');
+    }
 
-    public function getRouteKeyName(){ return 'slug'; } // route model binding by slug
+    public function registrations()
+    {
+        return $this->hasMany(EventRegistration::class);
+    }
 }

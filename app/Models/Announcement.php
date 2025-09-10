@@ -2,24 +2,33 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Announcement extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'event_id','campaign_id','title','body','channels',
-        'target_type','target_value','scheduled_at','published_at','status',
-        'send_count','fail_count',
+        'title',
+        'body',
+        'channels',
+        'status',
     ];
 
     protected $casts = [
-        'channels'=>'array','target_value'=>'array',
-        'scheduled_at'=>'datetime','published_at'=>'datetime',
+        'channels' => 'array', // stored as JSON
     ];
 
-    public function event(){ return $this->belongsTo(Event::class); }
-    public function campaign(){ return $this->belongsTo(Campaign::class); }
+    public const DRAFT = 'draft';
+    public const SCHEDULED = 'scheduled';
+    public const SENT = 'sent';
+    public const FAILED = 'failed';
+
+    // Example: if linked to events in future
+    public function event()
+    {
+        return $this->belongsTo(Event::class);
+    }
 }

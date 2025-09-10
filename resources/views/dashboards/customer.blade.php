@@ -258,6 +258,26 @@
     @endif
   </div>
 
+    {{-- Events & Announcements --}}
+  <div class="card reveal">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="margin:0">✨ Community</h3>
+      <span class="muted">Stay connected with our bookstore</span>
+    </div>
+    <div class="grid grid-2" style="gap:14px">
+      <a href="{{ route('cust.events.index') }}" class="card hover-lift" style="padding:14px;text-align:center">
+        <h3 style="margin:0 0 6px 0">📅 Events</h3>
+        <p class="muted" style="margin:0">Join book fairs, webinars, and more.</p>
+        <div class="mt"><span class="btn primary">View Events</span></div>
+      </a>
+      <a href="{{ route('cust.ann.index') }}" class="card hover-lift" style="padding:14px;text-align:center">
+        <h3 style="margin:0 0 6px 0">📢 Announcements</h3>
+        <p class="muted" style="margin:0">Get the latest news and updates.</p>
+        <div class="mt"><span class="btn primary">Read Announcements</span></div>
+      </a>
+    </div>
+  </div>
+
   {{-- Simple callout --}}
   <div class="card hover-lift reveal" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
     <div class="muted">Can’t find what you’re looking for?</div>

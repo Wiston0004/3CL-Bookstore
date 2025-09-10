@@ -22,6 +22,11 @@
 
   {{-- Filters --}}
   <div class="card">
+    <div class="right row" style="gap:8px">
+      <a class="pill" href="{{ route('manager.dashboard') }}">← Back to Dashboard</a>
+    </div>
+    <h3 style="margin:0 0 12px"></h3>
+    {{-- Search & filter form --}}
     <form class="row" method="get" action="{{ route('manager.transactions.index') }}">
       <input class="input" name="q" value="{{ request('q') }}" placeholder="Search: Tx ID / Order ID / Name / Email" style="flex:1;min-width:260px">
       <select class="input" name="type" style="max-width:200px">

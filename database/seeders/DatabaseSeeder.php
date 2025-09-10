@@ -13,6 +13,8 @@ class DatabaseSeeder extends Seeder
             StaffSeeder::class,
             CustomerSeeder::class,
             CategorySeeder::class,
+            EventSeeder::class,
+            AnnouncementSeeder::class,
         ]);
     }
 }

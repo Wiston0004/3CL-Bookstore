@@ -118,6 +118,14 @@
           <a href="{{ route('staff.orders.index') }}" class="btn">🧾 Manage Orders</a>
         </div>
       </div>
+      <div class="card">
+      <h3 style="margin:0 0 8px">✨ Manage Community</h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <a href="{{ route('staff.events.index') }}" class="btn">📅 Manage Events</a>
+        <a href="{{ route('staff.ann.index') }}" class="btn">📢 Manage Announcements</a>
+      </div>
+    </div>
+
 
       <div class="card">
         <h3 style="margin:0 0 8px">📢 Announcements</h3>

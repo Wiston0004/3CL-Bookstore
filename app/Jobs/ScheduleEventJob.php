@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\EventService;
+use App\Models\Event;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -12,7 +12,19 @@ use Illuminate\Queue\SerializesModels;
 class ScheduleEventJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-    public function __construct(public int $eventId) {}
-    public $tries=3; public $backoff=10;
-    public function handle(EventService $svc): void { $svc->schedule($this->eventId); }
+
+    protected int $eventId;
+
+    public function __construct(int $eventId)
+    {
+        $this->eventId = $eventId;
+    }
+
+    public function handle(): void
+    {
+        $event = Event::find($this->eventId);
+        if ($event && $event->status === Event::DRAFT) {
+            $event->update(['status' => Event::SCHEDULED]);
+        }
+    }
 }
