@@ -28,18 +28,17 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'purchases_api' => [
+        'base'    => env('PURCHASES_API_BASE', 'http://localhost/api/v1'),
+        'token'   => env('PURCHASES_API_TOKEN', null),
+        'timeout' => (float)env('PURCHASES_API_TIMEOUT', 3),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-];
 
-return [
-    'purchases_api' => [
-        'base'    => env('PURCHASES_API_BASE', 'http://localhost/api/v1'),
-        'token'   => env('PURCHASES_API_TOKEN', null),
-        'timeout' => (float) env('PURCHASES_API_TIMEOUT', 3.0),
-    ],
 ];
