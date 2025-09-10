@@ -61,7 +61,7 @@ Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')-
 
 Route::middleware(['auth','role:staff'])->group(function () {
     Route::view('/staff', 'dashboards.staff')->name('staff.dashboard');
-    Route::get('/events/index',                 [EventController::class,'index'])->name('events.index');
+    Route::get('/events/index',           [EventController::class,'index'])->name('events.index');
     Route::get('/events/create',          [EventController::class,'create'])->name('events.create');
     Route::post('/events',                [EventController::class,'store'])->name('events.store');
     Route::post('/events/{event}/cancel', [EventController::class,'cancel'])->name('events.cancel');

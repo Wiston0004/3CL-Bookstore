@@ -13,8 +13,9 @@ use Illuminate\Support\Str;
 class EventController extends Controller
 {
     public function index(){
-        $events = Event::latest('starts_at')->paginate(12);
-        return view('events.index', compact('events'));
+    $events = \App\Models\Event::where('status', '!=', \App\Models\Event::CANCELLED)
+        ->latest('starts_at')->paginate(12);
+    return view('events.index', compact('events'));
     }
 
     public function create(){
