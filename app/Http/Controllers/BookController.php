@@ -7,7 +7,7 @@ use App\Models\Book;
 use App\Models\Category;
 use App\Services\CatalogFacade;
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Facades\Http; // 👈 THIS is the correct import
 /**
  * @method void authorize($ability, $arguments = [])
  */
@@ -102,46 +102,45 @@ class BookController extends Controller
         return view('customer.show', compact('book'));
     }
 
-    /**
+     /**
      * API: GET /api/v1/books
-     * Query: q (string), category_id (int), page (int)
      */
-public function apiIndex(Request $request)
-{
-    $q = \App\Models\Book::query()->with('categories');
+    public function apiIndex(Request $request)
+    {
+        $q = \App\Models\Book::query()->with('categories');
 
-    if ($search = trim((string) $request->query('q', ''))) {
-        $q->where(function ($w) use ($search) {
-            $w->where('title', 'like', "%{$search}%")
-              ->orWhere('author', 'like', "%{$search}%")
-              ->orWhere('isbn', 'like', "%{$search}%");
-        });
+        if ($search = trim((string) $request->query('q', ''))) {
+            $q->where(function ($w) use ($search) {
+                $w->where('title', 'like', "%{$search}%")
+                  ->orWhere('author', 'like', "%{$search}%")
+                  ->orWhere('isbn', 'like', "%{$search}%");
+            });
+        }
+
+        if ($cat = $request->query('category_id')) {
+            $q->whereHas('categories', fn($w) => $w->where('categories.id', (int) $cat));
+        }
+
+        $books = $q->latest()->paginate(12);
+        return response()->json([
+            'data' => $books->getCollection()->map(function (\App\Models\Book $b) {
+                return [
+                    'id'         => $b->id,
+                    'title'      => $b->title,
+                    'author'     => $b->author,
+                    'isbn'       => $b->isbn,
+                    'price'      => $b->price,
+                    'stock'      => $b->stock ?? null,
+                    'categories' => $b->categories->pluck('name'),
+                ];
+            })->values(),
+            'meta' => [
+                'current_page' => $books->currentPage(),
+                'last_page'    => $books->lastPage(),
+                'total'        => $books->total(),
+            ],
+        ]);
     }
-
-    if ($cat = $request->query('category_id')) {
-        $q->whereHas('categories', fn($w) => $w->where('categories.id', (int) $cat));
-    }
-
-    $books = $q->latest()->paginate(12);
-    return response()->json([
-        'data' => $books->getCollection()->map(function (\App\Models\Book $b) {
-            return [
-                'id'         => $b->id,
-                'title'      => $b->title,
-                'author'     => $b->author,
-                'isbn'       => $b->isbn,
-                'price'      => $b->price,
-                'stock'      => $b->stock ?? null,
-                'categories' => $b->categories->pluck('name'),
-            ];
-        })->values(),
-        'meta' => [
-            'current_page' => $books->currentPage(),
-            'last_page'    => $books->lastPage(),
-            'total'        => $books->total(),
-        ],
-    ]);
-}
 
     /**
      * API: GET /api/v1/books/{book}
@@ -173,61 +172,88 @@ public function apiIndex(Request $request)
     }
 
     /**
- * API: POST /api/v1/books
- * Create a new book
- */
-public function apiStore(Request $request)
-{
-    $data = $request->validate([
-        'title'    => 'required|string|max:255',
-        'author'   => 'required|string|max:255',
-        'isbn'     => 'required|string|max:50|unique:books,isbn',
-        'price'    => 'required|numeric|min:0',
-        'stock'    => 'required|integer|min:0',
-        'category_ids' => 'array'
-    ]);
+     * API: POST /api/v1/books
+     * Create a new book (only staff/manager)
+     */
+    public function apiStore(Request $request)
+    {
+        if (!$this->checkUserRole($request, ['staff'])) {
+            return response()->json(['error' => 'Forbidden – only staff/manager can add books'], 403);
+        }
 
-    $book = Book::create($data);
+        $data = $request->validate([
+            'title'    => 'required|string|max:255',
+            'author'   => 'required|string|max:255',
+            'isbn'     => 'required|string|max:50|unique:books,isbn',
+            'price'    => 'required|numeric|min:0',
+            'stock'    => 'required|integer|min:0',
+            'category_ids' => 'array'
+        ]);
 
-    if (!empty($data['category_ids'])) {
-        $book->categories()->sync($data['category_ids']);
+        $book = Book::create($data);
+
+        if (!empty($data['category_ids'])) {
+            $book->categories()->sync($data['category_ids']);
+        }
+
+        return response()->json(['data' => $book], 201);
     }
 
-    return response()->json(['data' => $book], 201);
-}
+    /**
+     * API: PUT /api/v1/books/{book}
+     * Update a book (only staff/manager)
+     */
+    public function apiUpdate(Request $request, Book $book)
+    {
+        if (!$this->checkUserRole($request, ['staff'])) {
+            return response()->json(['error' => 'Forbidden – only staff/manager can update books'], 403);
+        }
 
-/**
- * API: PUT /api/v1/books/{book}
- * Update a book
- */
-public function apiUpdate(Request $request, Book $book)
-{
-    $data = $request->validate([
-        'title'    => 'sometimes|string|max:255',
-        'author'   => 'sometimes|string|max:255',
-        'isbn'     => "sometimes|string|max:50|unique:books,isbn,{$book->id}",
-        'price'    => 'sometimes|numeric|min:0',
-        'stock'    => 'sometimes|integer|min:0',
-        'category_ids' => 'array'
-    ]);
+        $data = $request->validate([
+            'title'    => 'sometimes|string|max:255',
+            'author'   => 'sometimes|string|max:255',
+            'isbn'     => "sometimes|string|max:50|unique:books,isbn,{$book->id}",
+            'price'    => 'sometimes|numeric|min:0',
+            'stock'    => 'sometimes|integer|min:0',
+            'category_ids' => 'array'
+        ]);
 
-    $book->update($data);
+        $book->update($data);
 
-    if (isset($data['category_ids'])) {
-        $book->categories()->sync($data['category_ids']);
+        if (isset($data['category_ids'])) {
+            $book->categories()->sync($data['category_ids']);
+        }
+
+        return response()->json(['data' => $book]);
     }
 
-    return response()->json(['data' => $book]);
+    /**
+     * API: DELETE /api/v1/books/{book}
+     * Delete a book (only staff/manager)
+     */
+    public function apiDestroy(Request $request, Book $book)
+    {
+        if (!$this->checkUserRole($request, ['staff'])) {
+            return response()->json(['error' => 'Forbidden – only staff/manager can delete books'], 403);
+        }
+
+        $book->delete();
+        return response()->json(['message' => 'Book deleted']);
+    }
+
+    /**
+     * 🔑 Helper: Verify role using User Management API
+     */
+    private function checkUserRole(Request $request, array $allowedRoles): bool
+    {
+        $user = $request->user(); // Sanctum resolves the user model from the token
+
+        if (!$user) {
+            return false;
+        }
+
+        return in_array($user->role ?? '', $allowedRoles);
+    }
+
 }
 
-/**
- * API: DELETE /api/v1/books/{book}
- * Delete a book (soft delete if enabled)
- */
-public function apiDestroy(Book $book)
-{
-    $book->delete();
-    return response()->json(['message' => 'Book deleted']);
-}
-
-}

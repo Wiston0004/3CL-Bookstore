@@ -31,7 +31,7 @@ return [
     'purchases_api' => [
         'base'    => env('PURCHASES_API_BASE', 'http://localhost/api/v1'),
         'token'   => env('PURCHASES_API_TOKEN', null),
-        'timeout' => (float)env('PURCHASES_API_TIMEOUT', 3),
+        'timeout' => (float)env('PURCHASES_API_TIMEOUT', 10),
     ],
 
     'slack' => [

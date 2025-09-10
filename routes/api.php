@@ -32,12 +32,16 @@ Route::prefix('v1')->group(function () {
             ->only(['index', 'show', 'store', 'update', 'destroy']);
     });
 
-    // Books CRUD
+    // Public (no login needed)
     Route::get('/books', [BookController::class, 'apiIndex']);
     Route::get('/books/{book}', [BookController::class, 'apiShow']);
-    Route::post('/books', [BookController::class, 'apiStore']);
-    Route::put('/books/{book}', [BookController::class, 'apiUpdate']);
-    Route::delete('/books/{book}', [BookController::class, 'apiDestroy']);
+
+    // Protected (need token)
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::post('/books', [BookController::class, 'apiStore']);
+        Route::put('/books/{book}', [BookController::class, 'apiUpdate']);
+        Route::delete('/books/{book}', [BookController::class, 'apiDestroy']);
+    });
 
     // Reviews CRUD
     Route::get('/books/{book}/ratings', [ReviewController::class, 'apiRatingsSummary']);
