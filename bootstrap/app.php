@@ -14,13 +14,13 @@ use App\Http\Middleware\RedirectIfAuthenticated;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',      // ← ADD THIS LINE
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Route middleware aliases
         $middleware->alias([
-            // built-ins you likely use in routes
             'auth'             => Authenticate::class,
             'guest'            => RedirectIfAuthenticated::class,
             'password.confirm' => \Illuminate\Auth\Middleware\RequirePassword::class,

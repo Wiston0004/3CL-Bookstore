@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Sanctum\HasApiTokens;   // <-- add
 
 class User extends Authenticatable
 {
-    use Notifiable, SoftDeletes;
+    use HasApiTokens, Notifiable, SoftDeletes;   // <-- add HasApiTokens here
 
     /** Map role → subclass */
     public const ROLE_CLASS = [
@@ -28,10 +29,11 @@ class User extends Authenticatable
     protected $casts  = [
         'email_verified_at' => 'datetime',
         'points'            => 'integer',
-        // (optional alternative to the mutator): 'password' => 'hashed',
+        // keep your current mutator for hashing (below)
+        // 'password' => 'hashed',  // <- do NOT enable unless you remove the mutator
     ];
 
-    // secure: auto-hash if plain given (keep if you don't use the 'hashed' cast)
+    // Keep your existing mutator (so no behavior changes)
     public function setPasswordAttribute($value){
         if ($value) $this->attributes['password'] = bcrypt($value);
     }
@@ -40,15 +42,10 @@ class User extends Authenticatable
     public function isStaff(){   return $this->role === 'staff'; }
     public function isCustomer(){return $this->role === 'customer'; }
 
-    /**
-     * STI magic: whenever Eloquent builds a model from DB,
-     * re-instantiate the proper subclass based on 'role'.
-     */
     public function newFromBuilder($attributes = [], $connection = null)
     {
         $attr = (object) $attributes;
 
-        // If there's a role and a mapped class, return that subclass instance
         if (isset($attr->role) && isset(static::ROLE_CLASS[$attr->role])) {
             $class = static::ROLE_CLASS[$attr->role];
 
@@ -60,7 +57,6 @@ class User extends Authenticatable
             return $instance;
         }
 
-        // Fallback: base User
         return parent::newFromBuilder($attributes, $connection);
     }
 }
