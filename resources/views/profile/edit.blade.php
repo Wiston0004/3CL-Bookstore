@@ -29,9 +29,9 @@
 
   {{-- Tabs --}}
   <div class="row mt">
-    <button class="pill" data-tab="account">Account</button>
-    <button class="pill" data-tab="security">Security</button>
-    <button class="pill" data-tab="avatar">Avatar</button>
+    <button class="pill" data-tab="account" style="color: rgb(104, 166, 237)">Account</button>
+    <button class="pill" data-tab="security" style="color: rgb(104, 166, 237)">Security</button>
+    <button class="pill" data-tab="avatar" style="color: rgb(104, 166, 237)">Avatar</button>
   </div>
 
   <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="mt">
@@ -51,7 +51,9 @@
         @if(in_array('name',$editable))
           <input class="input" name="name" value="{{ old('name',$user->name) }}" required>
         @else
-          <input class="input" value="{{ $user->name }}" disabled>
+          {{-- Staff cannot edit name --}}
+          <input class="input bg-light text-muted" value="{{ $user->name }}" disabled style="color: gray">
+          <small class="text-danger" style="color: rgb(244, 97, 97)">*Please contact manager to change</small>
         @endif
       </div>
       <div>
@@ -67,7 +69,9 @@
         @if(in_array('email',$editable))
           <input class="input" type="email" name="email" value="{{ old('email',$user->email) }}" required>
         @else
-          <input class="input" type="email" value="{{ $user->email }}" disabled>
+          {{-- Staff cannot edit email --}}
+          <input class="input bg-light text-muted" type="email" value="{{ $user->email }}" disabled style="color: gray">
+          <small class="text-danger" style="color: rgb(244, 97, 97)">*Please contact manager to change</small>
         @endif
       </div>
       <div>

@@ -60,14 +60,14 @@
         <tr>
           @php $toggleDir = ($dir ?? 'desc') === 'asc' ? 'desc' : 'asc'; @endphp
           <th>
-            <a href="{{ route('manager.users.index', array_merge(request()->query(), ['sort'=>'id','dir'=> ($sort==='id' ? $toggleDir : 'asc')])) }}">
-              ID {!! $sort==='id' ? ($dir==='asc'?'↑':'↓') : '' !!}
+            <a href="{{ route('manager.users.index', array_merge(request()->query(), ['sort'=>'id','dir'=> (($sort ?? 'id')==='id' ? $toggleDir : 'asc')])) }}">
+              ID {!! ($sort ?? 'id')==='id' ? (($dir ?? 'desc')==='asc'?'↑':'↓') : '' !!}
             </a>
           </th>
           <th>Role</th>
           <th>
-            <a href="{{ route('manager.users.index', array_merge(request()->query(), ['sort'=>'name','dir'=> ($sort==='name' ? $toggleDir : 'asc')])) }}">
-              Name {!! $sort==='name' ? ($dir==='asc'?'↑':'↓') : '' !!}
+            <a href="{{ route('manager.users.index', array_merge(request()->query(), ['sort'=>'name','dir'=> (($sort ?? 'id')==='name' ? $toggleDir : 'asc')])) }}">
+              Name {!! ($sort ?? 'id')==='name' ? (($dir ?? 'desc')==='asc'?'↑':'↓') : '' !!}
             </a>
           </th>
           <th>Username</th>
@@ -89,6 +89,17 @@
             <td>{{ $u->created_at->format('Y-m-d') }}</td>
             <td class="right">
               <a class="pill" href="{{ route('manager.users.edit',$u) }}">Edit</a>
+
+              @if($u->role !== 'manager' && $u->id !== auth()->id())
+                <form action="{{ route('manager.users.destroy', $u) }}"
+                      method="POST"
+                      class="inline"
+                      onsubmit="return confirm('Delete user {{ $u->name }}? This cannot be undone.');">
+                  @csrf
+                  @method('DELETE')
+                  <button type="submit" class="pill pill-danger">Delete</button>
+                </form>
+              @endif
             </td>
           </tr>
         @empty
