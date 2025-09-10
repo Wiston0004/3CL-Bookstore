@@ -11,10 +11,9 @@ use Illuminate\Http\Request;
 /**
  * @method void authorize($ability, $arguments = [])
  */
-
 class BookController extends Controller
 {
-    public function __construct(private CatalogFacade $catalog) {} // <-- inject
+    public function __construct(private CatalogFacade $catalog) {} 
 
     public function index(Request $r)
     {
@@ -103,5 +102,132 @@ class BookController extends Controller
         return view('customer.show', compact('book'));
     }
 
+    /**
+     * API: GET /api/v1/books
+     * Query: q (string), category_id (int), page (int)
+     */
+public function apiIndex(Request $request)
+{
+    $q = \App\Models\Book::query()->with('categories');
+
+    if ($search = trim((string) $request->query('q', ''))) {
+        $q->where(function ($w) use ($search) {
+            $w->where('title', 'like', "%{$search}%")
+              ->orWhere('author', 'like', "%{$search}%")
+              ->orWhere('isbn', 'like', "%{$search}%");
+        });
+    }
+
+    if ($cat = $request->query('category_id')) {
+        $q->whereHas('categories', fn($w) => $w->where('categories.id', (int) $cat));
+    }
+
+    $books = $q->latest()->paginate(12);
+    return response()->json([
+        'data' => $books->getCollection()->map(function (\App\Models\Book $b) {
+            return [
+                'id'         => $b->id,
+                'title'      => $b->title,
+                'author'     => $b->author,
+                'isbn'       => $b->isbn,
+                'price'      => $b->price,
+                'stock'      => $b->stock ?? null,
+                'categories' => $b->categories->pluck('name'),
+            ];
+        })->values(),
+        'meta' => [
+            'current_page' => $books->currentPage(),
+            'last_page'    => $books->lastPage(),
+            'total'        => $books->total(),
+        ],
+    ]);
 }
 
+    /**
+     * API: GET /api/v1/books/{book}
+     */
+    public function apiShow(Book $book)
+    {
+        $book->load([
+            'categories:id,name',
+            'reviews' => fn($r) => $r->latest()->limit(5),
+        ]);
+
+        return response()->json([
+            'data' => [
+                'id'         => $book->id,
+                'title'      => $book->title,
+                'author'     => $book->author,
+                'isbn'       => $book->isbn,
+                'price'      => $book->price,
+                'stock'      => $book->stock ?? null,
+                'categories' => $book->categories->pluck('name'),
+                'reviews'    => $book->reviews->map(fn($rv) => [
+                    'user_id' => $rv->user_id,
+                    'rating'  => $rv->rating,
+                    'content' => $rv->content,
+                    'date'    => optional($rv->created_at)->toDateTimeString(),
+                ]),
+            ],
+        ]);
+    }
+
+    /**
+ * API: POST /api/v1/books
+ * Create a new book
+ */
+public function apiStore(Request $request)
+{
+    $data = $request->validate([
+        'title'    => 'required|string|max:255',
+        'author'   => 'required|string|max:255',
+        'isbn'     => 'required|string|max:50|unique:books,isbn',
+        'price'    => 'required|numeric|min:0',
+        'stock'    => 'required|integer|min:0',
+        'category_ids' => 'array'
+    ]);
+
+    $book = Book::create($data);
+
+    if (!empty($data['category_ids'])) {
+        $book->categories()->sync($data['category_ids']);
+    }
+
+    return response()->json(['data' => $book], 201);
+}
+
+/**
+ * API: PUT /api/v1/books/{book}
+ * Update a book
+ */
+public function apiUpdate(Request $request, Book $book)
+{
+    $data = $request->validate([
+        'title'    => 'sometimes|string|max:255',
+        'author'   => 'sometimes|string|max:255',
+        'isbn'     => "sometimes|string|max:50|unique:books,isbn,{$book->id}",
+        'price'    => 'sometimes|numeric|min:0',
+        'stock'    => 'sometimes|integer|min:0',
+        'category_ids' => 'array'
+    ]);
+
+    $book->update($data);
+
+    if (isset($data['category_ids'])) {
+        $book->categories()->sync($data['category_ids']);
+    }
+
+    return response()->json(['data' => $book]);
+}
+
+/**
+ * API: DELETE /api/v1/books/{book}
+ * Delete a book (soft delete if enabled)
+ */
+public function apiDestroy(Book $book)
+{
+    $book->delete();
+    return response()->json(['message' => 'Book deleted']);
+}
+
+}

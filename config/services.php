@@ -34,5 +34,12 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+];
 
+return [
+    'purchases_api' => [
+        'base'    => env('PURCHASES_API_BASE', 'http://localhost/api/v1'),
+        'token'   => env('PURCHASES_API_TOKEN', null),
+        'timeout' => (float) env('PURCHASES_API_TIMEOUT', 3.0),
+    ],
 ];
