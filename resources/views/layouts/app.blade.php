@@ -33,6 +33,15 @@
     .btn.success{background:linear-gradient(135deg,#16a34a,#22c55e);border:none}
     .btn.danger{background:linear-gradient(135deg,#ef4444,#f97316);border:none}
     .pill{display:inline-block;padding:6px 12px;border-radius:999px;border:1px solid #2a3263;background:#0f1533;font-size:13px}
+    /* red variant for pill buttons */
+    .pill-danger{
+      background: var(--danger);
+      border-color: var(--danger);
+      color:#fff;
+    }
+    .pill-danger:hover{
+      filter: brightness(0.92);
+    }
     .input{width:100%;padding:12px 14px;border:1px solid #2a3263;background:#0f1533;color:var(--text);border-radius:10px;outline:none}
     .input:focus{border-color:var(--ring);box-shadow:0 0 0 3px rgba(99,102,241,.25)}
     label{display:block;font-size:14px;color:#cbd5e1;margin:8px 0 6px}

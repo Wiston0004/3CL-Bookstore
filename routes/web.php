@@ -42,9 +42,8 @@ Route::post('/logout',        [RoleLoginController::class, 'logout'])->name('log
 Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')->group(function () {
     Route::view('/', 'dashboards.manager')->name('dashboard');
 
-    // Users (no destroy, no bulk)
     Route::resource('users', UserAdminController::class)
-        ->only(['index','create','store','edit','update'])
+        ->only(['index','create','store','edit','update','destroy'])
         ->names('users');
 
     // Optional CSV export
