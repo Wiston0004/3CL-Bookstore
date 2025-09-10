@@ -69,9 +69,8 @@ class EventController extends Controller
 
     public function destroy(Event $event)
     {
-        // 🔹 Command Pattern: delegate cancel logic to a Job
-        CancelEventJob::dispatch($event->id, 'Deleted by staff');
-
-        return redirect()->route('staff.events.index')->with('ok', 'Event cancellation queued.');
+        $event->delete(); // deletes the row from DB
+        return redirect()->route('staff.events.index')
+                        ->with('ok', 'Event deleted.');
     }
 }
