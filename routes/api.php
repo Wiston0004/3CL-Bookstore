@@ -24,7 +24,13 @@ Route::prefix('v1')->group(function () {
         Route::get ('auth/me',       [AuthController::class, 'me'])->middleware('auth:sanctum');
     });
 
-    
+    // Manager-only: User JSON CRUD (NO trashed/restore)
+    Route::middleware(['auth:sanctum', 'role:manager', 'throttle:api'])
+        ->prefix('manager')->name('api.manager.')->group(function () {
+
+        Route::apiResource('users', ApiUserController::class)
+            ->only(['index', 'show', 'store', 'update', 'destroy']);
+    });
 
     // Public (no login needed)
     Route::get('/books', [BookController::class, 'apiIndex']);
