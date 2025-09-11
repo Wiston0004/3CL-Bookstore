@@ -16,7 +16,7 @@ class OrderController extends Controller
         $orders = Order::with('items.book')
             ->where('user_id', auth()->id())
             ->orderByDesc('order_date')
-            ->paginate(10);
+            ->paginate(200);
 
         return view('orders.index', compact('orders'));
     }

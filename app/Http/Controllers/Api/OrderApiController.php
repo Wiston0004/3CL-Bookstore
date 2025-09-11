@@ -279,4 +279,44 @@ class OrderApiController extends Controller
             ->response()
             ->setStatusCode(201);
     }
+
+    public function staffIndex(Request $request)
+{
+    // Optional filters: ?status=processing&number=ORD-2025&date_from=2025-09-01&date_to=2025-09-30
+    $status    = $request->query('status');       // e.g., processing, shipped, cancelled, completed
+    $number    = $request->query('number');       // partial match
+    $dateFrom  = $request->query('date_from');    // YYYY-MM-DD
+    $dateTo    = $request->query('date_to');      // YYYY-MM-DD
+    $perPage   = min((int) $request->query('per_page', 20), 100);
+
+    $q = \App\Models\Order::query()
+        ->with(['items.book','shipment','user'])   // include user so staff can see who placed it
+        ->orderByDesc('order_date');
+
+    if ($status) {
+        $q->where('status', $status);
+    }
+    if ($number) {
+        $q->where('number', 'like', "%{$number}%");
+    }
+    if ($dateFrom) {
+        $q->whereDate('order_date', '>=', $dateFrom);
+    }
+    if ($dateTo) {
+        $q->whereDate('order_date', '<=', $dateTo);
+    }
+
+    $orders = $q->paginate($perPage);
+
+    // Return with user info when loaded; OrderResource will handle it if we add a tiny tweak (below)
+    return \App\Http\Resources\OrderResource::collection($orders);
+}
+
+public function staffShow(Request $request, \App\Models\Order $order)
+{
+    // Staff/manager can see any order
+    $order->load(['items.book','shipment','user','transactions']);
+    return new \App\Http\Resources\OrderResource($order);
+}
+
 }
