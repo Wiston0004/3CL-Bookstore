@@ -15,8 +15,9 @@ use App\Http\Controllers\Manager\TransactionController as ManagerTransactionCont
 use App\Http\Controllers\Staff\OrderController as StaffOrderController;
 use App\Http\Controllers\Manager\SalesReportController;
 use App\Http\Controllers\EventController;
-use App\Http\Controllers\EventRegistrationController as RegController;
-use App\Http\Controllers\AnnouncementAsyncController as AnnController;
+use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\EventCustomerController;
+use App\Http\Controllers\AnnouncementCustomerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -60,24 +61,34 @@ Route::middleware(['auth','role:manager'])->prefix('manager')->name('manager.')-
 
 Route::middleware(['auth','role:staff'])->group(function () {
     Route::view('/staff', 'dashboards.staff')->name('staff.dashboard');
-    Route::get('/events/index',           [EventController::class,'index'])->name('events.index');
-    Route::get('/events/create',          [EventController::class,'create'])->name('events.create');
-    Route::post('/events',                [EventController::class,'store'])->name('events.store');
-    Route::post('/events/{event}/cancel', [EventController::class,'cancel'])->name('events.cancel');
+    // Events CRUD
+    Route::get('staff/events', [EventController::class,'index'])->name('staff.events.index');
+    Route::get('staff/events/create', [EventController::class,'create'])->name('staff.events.create');
+    Route::post('staff/events', [EventController::class,'store'])->name('staff.events.store');
+    Route::get('staff/events/{event}/edit', [EventController::class,'edit'])->name('staff.events.edit');
+    Route::put('staff/events/{event}', [EventController::class,'update'])->name('staff.events.update');
+    Route::delete('staff/events/{event}', [EventController::class,'destroy'])->name('staff.events.destroy');
 
-    // Announcements (queued + pipeline)
-    Route::get('/announcements/create', [AnnController::class, 'create'])->name('ann.create');
-    Route::post('/announcements/queue', [AnnController::class, 'store'])->name('ann.queue');
-
+    // Announcements CRUD
+    Route::get('staff/announcements', [AnnouncementController::class,'index'])->name('staff.ann.index');
+    Route::get('staff/announcements/create', [AnnouncementController::class,'create'])->name('staff.ann.create');
+    Route::post('staff/announcements', [AnnouncementController::class,'store'])->name('staff.ann.store');
+    Route::get('staff/announcements/{announcement}/edit', [AnnouncementController::class,'edit'])->name('staff.ann.edit');
+    Route::put('staff/announcements/{announcement}', [AnnouncementController::class,'update'])->name('staff.ann.update');
+    Route::delete('staff/announcements/{announcement}', [AnnouncementController::class,'destroy'])->name('staff.ann.destroy');
     // Back-compat alias for old code using dashboard.staff
     Route::redirect('/dashboard/staff', '/staff')->name('dashboard.staff');
 });
 
 Route::middleware(['auth','role:customer'])->group(function () {
     Route::view('/customer', 'dashboards.customer')->name('customer.dashboard');
-    Route::get('/events',                      [RegController::class,'list'])->name('events.list');
-    Route::get('/events/{event:slug}',         [RegController::class,'show'])->name('events.show');
-    Route::post('/events/{event:slug}/register',[RegController::class,'store'])->name('events.register.store');
+    Route::get('/events', [EventCustomerController::class,'index'])->name('cust.events.index');
+    Route::get('/events/{event:slug}', [EventCustomerController::class,'show'])->name('cust.events.show');
+    Route::post('/events/{event:slug}/register', [EventCustomerController::class,'register'])->name('cust.events.register');
+
+    // Announcements
+    Route::get('/announcements', [AnnouncementCustomerController::class,'index'])->name('cust.ann.index');
+    Route::get('/announcements/{announcement}', [AnnouncementCustomerController::class,'show'])->name('cust.ann.show');
 });
 
 /*
@@ -103,6 +114,14 @@ Route::middleware(['auth','role:staff,customer'])->group(function () {
     Route::patch('/orders/{order}/address', [OrderController::class, 'updateAddress'])->name('orders.address');
     Route::patch('/orders/{order}/cancel',   [OrderController::class, 'cancel'])->name('orders.cancel');
 
+    // Events
+    Route::get('/events', [EventCustomerController::class,'index'])->name('cust.events.index');
+    Route::get('/events/{event:slug}', [EventCustomerController::class,'show'])->name('cust.events.show');
+    Route::post('/events/{event:slug}/register', [EventCustomerController::class,'register'])->name('cust.events.register');
+
+    // Announcements
+    Route::get('/announcements', [AnnouncementCustomerController::class,'index'])->name('cust.ann.index');
+    Route::get('/announcements/{announcement}', [AnnouncementCustomerController::class,'show'])->name('cust.ann.show');
 });
 
 // Order state transitions: staff or manager only

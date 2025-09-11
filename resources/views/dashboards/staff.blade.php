@@ -27,9 +27,7 @@
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
         <a href="{{ route('books.create', request()->query()) }}" class="btn primary">➕ Add Book</a>
-        <a href="{{ route('ann.create',  request()->query()) }}" class="btn">📚 Add announcement</a>
         <a href="{{ route('books.index',  request()->query()) }}" class="btn">📚 Inventory</a>
-        <a href="{{ route('events.index',  request()->query()) }}" class="btn">📚 Event</a>
         <a href="{{ route('books.index', array_merge(request()->query(), ['low' => request('low', $threshold)])) }}" class="pill">⚠️ Low Stock</a>
       </div>
     </div>
@@ -118,6 +116,14 @@
           <a href="{{ route('staff.orders.index') }}" class="btn">🧾 Manage Orders</a>
         </div>
       </div>
+      <div class="card">
+      <h3 style="margin:0 0 8px">✨ Manage Community</h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <a href="{{ route('staff.events.index') }}" class="btn">📅 Manage Events</a>
+        <a href="{{ route('staff.ann.index') }}" class="btn">📢 Manage Announcements</a>
+      </div>
+    </div>
+
 
       <div class="card">
         <h3 style="margin:0 0 8px">📢 Announcements</h3>

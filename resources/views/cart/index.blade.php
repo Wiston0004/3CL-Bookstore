@@ -35,7 +35,7 @@
     @endif
     @if(session('err'))
       <div class="pill" style="border-color:#3e1d1d;background:linear-gradient(180deg,#1a0e0e,#241012);margin-top:10px">
-        ⚠️ {{ session('err') }}
+        ⚠ {{ session('err') }}
       </div>
     @endif
   </div>

@@ -6,7 +6,10 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\Api\Manager\UserController as ApiUserController;
-
+use App\Http\Controllers\Api\BookApiController;
+use App\Http\Controllers\Api\InventoryApiController;
+use App\Http\Controllers\API\EventApiController;
+use App\Http\Controllers\API\AnnouncementApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\OrderApiController;
 
@@ -33,14 +36,14 @@ Route::prefix('v1')->group(function () {
     });
 
     // Public (no login needed)
-    Route::get('/books', [BookController::class, 'apiIndex']);
-    Route::get('/books/{book}', [BookController::class, 'apiShow']);
+    Route::get('/books', [BookApiController::class, 'index']);
+    Route::get('/books/{book}', [BookApiController::class, 'show']);
 
     // Protected (need token)
     Route::middleware(['auth:sanctum'])->group(function () {
-        Route::post('/books', [BookController::class, 'apiStore']);
-        Route::put('/books/{book}', [BookController::class, 'apiUpdate']);
-        Route::delete('/books/{book}', [BookController::class, 'apiDestroy']);
+        Route::post('/books', [BookApiController::class, 'store']);
+        Route::put('/books/{book}', [BookApiController::class, 'update']);
+        Route::delete('/books/{book}', [BookApiController::class, 'destroy']);
     });
 
     // Reviews CRUD
@@ -50,8 +53,35 @@ Route::prefix('v1')->group(function () {
     Route::delete('/reviews/{review}', [ReviewController::class, 'apiDestroy']);
 
     // Inventory
-    Route::get('/inventory/{book}/stock', [InventoryController::class, 'apiStock']);
-    Route::post('/inventory/adjust', [InventoryController::class, 'apiAdjust']);
+    Route::get('/inventory/{book}/stock', [InventoryApiController::class, 'stock']);
+    Route::post('/inventory/adjust', [InventoryApiController::class, 'adjust']);
+
+    // ----------------- STAFF API -----------------
+    Route::middleware(['auth:sanctum','role:staff'])->group(function () {
+        // Events CRUD
+        Route::get('/events', [EventApiController::class,'index']);
+        Route::post('/events', [EventApiController::class,'store']);
+        Route::get('/events/{event}', [EventApiController::class,'show']);
+        Route::put('/events/{event}', [EventApiController::class,'update']);
+        Route::delete('/events/{event}', [EventApiController::class,'destroy']);
+
+        // Announcements CRUD
+        Route::get('/announcements', [AnnouncementApiController::class,'index']);
+        Route::post('/announcements', [AnnouncementApiController::class,'store']);
+        Route::get('/announcements/{announcement}', [AnnouncementApiController::class,'show']);
+        Route::put('/announcements/{announcement}', [AnnouncementApiController::class,'update']);
+        Route::delete('/announcements/{announcement}', [AnnouncementApiController::class,'destroy']);
+    });
+
+    // ----------------- CUSTOMER API -----------------
+    Route::middleware(['auth:sanctum','role:customer'])->group(function () {
+        Route::get('/events', [EventApiController::class,'index']);
+        Route::get('/events/{event}', [EventApiController::class,'show']);
+        Route::post('/events/{event}/register', [EventApiController::class,'register']);
+
+        Route::get('/announcements', [AnnouncementApiController::class,'index']);
+        Route::get('/announcements/{announcement}', [AnnouncementApiController::class,'show']);
+    });
 });
 
 // JSON 404 fallback
