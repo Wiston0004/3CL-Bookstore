@@ -10,20 +10,29 @@ abstract class AbstractSalesReport
         protected \Carbon\CarbonInterface $start,
         protected \Carbon\CarbonInterface $end,
         protected int $top = 10,
-        protected array $statuses = ['Shipped','Arrived','Completed','Paid','Processing'], // widened
-        protected string $dateCol = 'o.created_at' // << use the real column here
+        protected array $statuses = ['Shipped','Arrived','Completed','Paid','Processing'],
+        protected string $dateCol = 'o.created_at'
     ) {}
 
-    /** Return a plain SQL string for the time bucket (e.g. "DATE(o.created_at)") */
+    /** Subclasses define how to group the date column (day/week/month) */
     abstract protected function bucketExpr(): string;
 
-    /** TEMPLATE METHOD: fixed algorithm */
+    /** TEMPLATE METHOD – fixed reporting algorithm */
     final public function build(): array
     {
-        $bucket = $this->bucketExpr();
+        $bucket     = $this->bucketExpr();
+        $kpi        = $this->computeKPI();
+        $avgOrder   = $this->computeAverageOrder($kpi);
+        $series     = $this->buildSeries($bucket);
+        $topBooks   = $this->buildTopBooks();
+        $byCategory = $this->buildByCategory();
 
-        // KPIs
-        $kpi = DB::table('order_items as oi')
+        return compact('kpi','avgOrder','series','topBooks','byCategory');
+    }
+
+    protected function computeKPI()
+    {
+        return DB::table('order_items as oi')
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->whereBetween($this->dateCol, [$this->start, $this->end])
             ->whereIn('o.status', $this->statuses)
@@ -31,11 +40,18 @@ abstract class AbstractSalesReport
             ->selectRaw('COUNT(DISTINCT o.id) as orders')
             ->selectRaw('SUM(oi.quantity) as items')
             ->first();
+    }
 
-        $avgOrder = ($kpi && ($kpi->orders ?? 0) > 0) ? round($kpi->revenue / $kpi->orders, 2) : 0.0;
+    protected function computeAverageOrder($kpi): float
+    {
+        return ($kpi && ($kpi->orders ?? 0) > 0)
+            ? round($kpi->revenue / $kpi->orders, 2)
+            : 0.0;
+    }
 
-        // Series
-        $series = DB::table('order_items as oi')
+    protected function buildSeries(string $bucket)
+    {
+        return DB::table('order_items as oi')
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->whereBetween($this->dateCol, [$this->start, $this->end])
             ->whereIn('o.status', $this->statuses)
@@ -46,9 +62,11 @@ abstract class AbstractSalesReport
             ->groupByRaw($bucket)
             ->orderByRaw($bucket)
             ->get();
+    }
 
-        // Top books
-        $topBooks = DB::table('order_items as oi')
+    protected function buildTopBooks()
+    {
+        return DB::table('order_items as oi')
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->join('books as b', 'b.id', '=', 'oi.book_id')
             ->whereBetween($this->dateCol, [$this->start, $this->end])
@@ -60,9 +78,11 @@ abstract class AbstractSalesReport
             ->orderByDesc('revenue')
             ->limit($this->top)
             ->get();
+    }
 
-        // By Category
-        $byCategory = DB::table('order_items as oi')
+    protected function buildByCategory()
+    {
+        return DB::table('order_items as oi')
             ->join('orders as o', 'o.id', '=', 'oi.order_id')
             ->leftJoin('book_category as bc', 'bc.book_id', '=', 'oi.book_id')
             ->leftJoin('categories as c', 'c.id', '=', 'bc.category_id')
@@ -76,7 +96,5 @@ abstract class AbstractSalesReport
             ->orderByDesc('revenue')
             ->limit(50)
             ->get();
-
-        return compact('kpi','avgOrder','series','topBooks','byCategory');
     }
 }
