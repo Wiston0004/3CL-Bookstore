@@ -78,4 +78,10 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post  ('/checkout',             [OrderApiController::class, 'checkout'])->name('checkout');
     });
 
+     Route::middleware(['auth:sanctum','role:staff,manager'])->group(function () {
+    Route::get('/staff/orders', [OrderApiController::class, 'staffIndex']);
+    Route::get('/staff/orders/{order}', [OrderApiController::class, 'staffShow']);
+});
+
+
 });
