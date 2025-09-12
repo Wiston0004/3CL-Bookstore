@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Book;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB; // ✅ add this line
 
 class BookApiController extends Controller
 {
@@ -181,4 +182,47 @@ class BookApiController extends Controller
         $user = $request->user();
         return $user && in_array($user->role ?? '', $allowedRoles);
     }
+
+    /**
+ * API: POST /api/v1/books/{book}/decrement
+ * Body JSON: { "quantity": 3 }
+ */
+public function decrement(Request $request, Book $book)
+{
+    $data = $request->validate([
+        'quantity' => ['required','integer','min:1'],
+    ]);
+
+    $qty = (int) $data['quantity'];
+
+    // Wrap in transaction to avoid race conditions
+    DB::transaction(function () use ($book, $qty) {
+        $newStock = $book->stock - $qty;
+
+        if ($newStock < 0) {
+            abort(422, 'Insufficient stock');
+        }
+
+        $book->update(['stock' => $newStock]);
+
+        // Optional: log stock movement if relation exists
+        if (method_exists($book, 'stockMovements')) {
+            $book->stockMovements()->create([
+                'quantity_change' => -$qty,
+                'reason'          => 'API decrement',
+            ]);
+        }
+    });
+
+    $book->refresh();
+
+    return response()->json([
+        'ok'   => true,
+        'data' => [
+            'book_id' => $book->id,
+            'stock'   => (int) $book->stock,
+        ],
+    ]);
+}
+
 }
