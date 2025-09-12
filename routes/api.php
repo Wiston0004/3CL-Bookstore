@@ -82,6 +82,10 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post  ('/checkout',             [OrderApiController::class, 'checkout'])->name('checkout');
     });
 
+     Route::middleware(['auth:sanctum','role:staff,manager'])->group(function () {
+    Route::get('/staff/orders', [OrderApiController::class, 'staffIndex']);
+    Route::get('/staff/orders/{order}', [OrderApiController::class, 'staffShow']);
+});
 });
 
 Route::prefix('v1')->group(function () {
@@ -106,4 +110,5 @@ Route::prefix('v1')->group(function () {
         Route::get('/announcements', [AnnouncementCustomerController::class,'index'])->name('api.cust.ann.index');
         Route::get('/announcements/{announcement}', [AnnouncementCustomerController::class,'show'])->name('api.cust.ann.show');
     });
+
 });

@@ -6,6 +6,8 @@ use App\Models\{Order, OrderItem, CartItem, Shipment, TransactionHistory, Book};
 use App\Payments\PaymentManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use function App\Helpers\cleanLimitedHtml;
+
 
 
 class OrderController extends Controller
@@ -16,7 +18,7 @@ class OrderController extends Controller
         $orders = Order::with('items.book')
             ->where('user_id', auth()->id())
             ->orderByDesc('order_date')
-            ->paginate(10);
+            ->paginate(200);
 
         return view('orders.index', compact('orders'));
     }
@@ -112,6 +114,9 @@ class OrderController extends Controller
             $discount          = $pointsUsed / 100.0;
             $total             = max(0, $preTotal - $discount);
 
+            $notes = cleanLimitedHtml($req->input('order_note'));
+
+
             $order = Order::create([
                 'user_id'         => $userId,
                 'order_date'      => now(),
@@ -121,7 +126,7 @@ class OrderController extends Controller
                 'shipping_amount' => $shipping,    // (make sure column exists)
                 'total_amount'    => $total,
                 'payment_method'  => $req->payment_method,
-                'notes'           => $req->input('order_note'),
+                'notes'           => $notes,
             ]);
 
             // Items + stock movement
