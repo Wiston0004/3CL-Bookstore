@@ -8,8 +8,6 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\Api\Manager\UserController as ApiUserController;
 use App\Http\Controllers\Api\BookApiController;
 use App\Http\Controllers\Api\InventoryApiController;
-use App\Http\Controllers\API\EventApiController;
-use App\Http\Controllers\API\AnnouncementApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\Api\PointsApiController;  
@@ -17,6 +15,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use App\Http\Controllers\Api\AnnouncementApiController;
+use App\Http\Controllers\Api\AnnouncementApiCustomerController;
+use App\Http\Controllers\Api\EventApiController;
+use App\Http\Controllers\Api\EventApiCustomerController;
 
 Route::prefix('v1')->group(function () {
 
@@ -113,20 +115,37 @@ Route::prefix('v1')->group(function () {
         Route::post('/logout', [Controller::class, 'logout'])->name('api.logout');
     });
 
-    // Staff routes (protected by auth + role:staff)
-    Route::middleware(['auth:sanctum','role:staff'])->prefix('staff')->group(function () {
-        Route::apiResource('events', EventController::class);
-        Route::apiResource('announcements', AnnouncementController::class);
+    // ==========================
+    // Staff Routes (API)
+    // ==========================
+    Route::prefix('v1/staff')->group(function () {
+        // Announcements (CRUD)
+        Route::get('/announcements', [AnnouncementApiController::class, 'index']);
+        Route::post('/announcements', [AnnouncementApiController::class, 'store']);
+        Route::get('/announcements/{announcement}', [AnnouncementApiController::class, 'show']);
+        Route::put('/announcements/{announcement}', [AnnouncementApiController::class, 'update']);
+        Route::delete('/announcements/{announcement}', [AnnouncementApiController::class, 'destroy']);
+
+        // Events (CRUD)
+        Route::get('/events', [EventApiController::class, 'index']);
+        Route::post('/events', [EventApiController::class, 'store']);
+        Route::get('/events/{event}', [EventApiController::class, 'show']);
+        Route::put('/events/{event}', [EventApiController::class, 'update']);
+        Route::delete('/events/{event}', [EventApiController::class, 'destroy']);
     });
 
-    // Customer routes (protected by auth + role:customer)
-    Route::middleware(['auth:sanctum','role:customer'])->group(function () {
-        Route::get('/events', [EventCustomerController::class,'index'])->name('api.cust.events.index');
-        Route::get('/events/{event:slug}', [EventCustomerController::class,'show'])->name('api.cust.events.show');
-        Route::post('/events/{event:slug}/register', [EventCustomerController::class,'register'])->name('api.cust.events.register');
+    // ==========================
+    // Customer Routes (Public)
+    // ==========================
+    Route::prefix('v1')->group(function () {
+        // Announcements
+        Route::get('/announcements', [AnnouncementApiCustomerController::class, 'index']);
+        Route::get('/announcements/{announcement}', [AnnouncementApiCustomerController::class, 'show']);
 
-        Route::get('/announcements', [AnnouncementCustomerController::class,'index'])->name('api.cust.ann.index');
-        Route::get('/announcements/{announcement}', [AnnouncementCustomerController::class,'show'])->name('api.cust.ann.show');
+        // Events
+        Route::get('/events', [EventApiCustomerController::class, 'index']);
+        Route::get('/events/{event}', [EventApiCustomerController::class, 'show']);
+        Route::post('/events/{event}/register', [EventApiCustomerController::class, 'register']);
     });
 
 });
