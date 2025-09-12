@@ -34,10 +34,10 @@
           'alt' => $e->title,
         ])
       : collect([
-          ['img' => asset('images/promos/merdeka-15.jpg'), 'url' => route('customer.index'), 'alt' => '15% Off All Books + RM5 e-Voucher'],
-          ['img' => asset('images/promos/indie-week.jpg'), 'url' => route('customer.index'), 'alt' => 'Indie Week • Staff Picks'],
-          ['img' => asset('images/promos/back-to-school.jpg'), 'url' => route('customer.index'), 'alt' => 'Back to School Essentials'],
-          ['img' => asset('images/promos/author-spotlight.jpg'), 'url' => route('customer.index'), 'alt' => 'Author Spotlight'],
+          ['img' => asset('images/promos/merdeka-15.jpg'), 'url' => route('cust.events.index'), 'alt' => '15% Off All Books + RM5 e-Voucher'],
+          ['img' => asset('images/promos/indie-week.jpg'), 'url' => route('cust.events.index'), 'alt' => 'Indie Week • Staff Picks'],
+          ['img' => asset('images/promos/back-to-school.jpg'), 'url' => route('cust.events.index'), 'alt' => 'Back to School Essentials'],
+          ['img' => asset('images/promos/author-spotlight.jpg'), 'url' => route('cust.events.index'), 'alt' => 'Author Spotlight'],
         ]);
 @endphp
 
