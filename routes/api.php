@@ -105,9 +105,12 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::get('/staff/orders', [OrderApiController::class, 'staffIndex']);
         Route::get('/staff/orders/{order}', [OrderApiController::class, 'staffShow']);
 
-        // Redeem Points
+        // Points: Redeem + Add
         Route::post('/users/{user}/points/redeem', [PointsApiController::class, 'redeem'])
             ->name('api.users.points.redeem');
+
+        Route::post('/users/{user}/points/add', [PointsApiController::class, 'add'])
+            ->name('api.users.points.add');
     });
 
     // -------------------------------
