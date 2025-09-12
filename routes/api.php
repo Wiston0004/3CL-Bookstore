@@ -106,15 +106,6 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     });
 });
 
-
-
-Route::prefix('v1')->group(function () {
-    // Authentication
-    Route::prefix('auth')->group(function () {
-        Route::post('/login/{type}', [AuthController::class, 'login'])->name('api.login.role');
-        Route::post('/logout', [Controller::class, 'logout'])->name('api.logout');
-    });
-
     // ==========================
     // Staff Routes (API)
     // ==========================
@@ -148,9 +139,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/events/{event}/register', [EventApiCustomerController::class, 'register']);
     });
 
-});
-
 Route::prefix('v1')->group(function () {
     Route::get('users/{user}/points', [PointsApiController::class, 'show']);
     Route::post('users/{user}/points/redeem', [PointsApiController::class, 'redeem']);
+    Route::post('users/{user}/points/add', [PointsApiController::class, 'redeem']); 
 });
