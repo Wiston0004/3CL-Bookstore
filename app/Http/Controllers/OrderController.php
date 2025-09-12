@@ -2,189 +2,331 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Order, OrderItem, CartItem, Shipment, TransactionHistory, Book};
+use App\Models\{Order, OrderItem, CartItem, Shipment, TransactionHistory};
 use App\Payments\PaymentManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use function App\Helpers\cleanLimitedHtml;
-
-
 
 class OrderController extends Controller
 {
+    /* -----------------------------
+     |  Small API client helpers
+     |------------------------------*/
+
+    private function fetchBook(int $id): ?object
+    {
+        $base    = config('services.books_api.base');
+        $timeout = (float) config('services.books_api.timeout', 5);
+
+        return Cache::remember("book:$id", 60, function () use ($base, $timeout, $id) {
+            $res = Http::retry(2, 150)->timeout($timeout)->acceptJson()->get("$base/books/$id");
+            if (!$res->ok()) return null;
+
+            $payload = $res->json();
+            $b = $payload['data'] ?? $payload;
+
+            return (object) [
+                'id'      => (int)   ($b['id'] ?? $id),
+                'title'   => (string)($b['title'] ?? 'Untitled'),
+                'author'  => $b['author'] ?? null,
+                'price'   => (float) ($b['price'] ?? 0),
+                'stock'   => (int)   ($b['stock'] ?? 0),
+                'cover_image_url' => $b['cover_image_url'] ?? null,
+                // add other fields you need…
+            ];
+        });
+    }
+
+    /** Decrement stock in the Books API (adjust endpoint to your API spec) */
+    private function decrementBookStock(int $bookId, int $qty): bool
+    {
+        $base    = config('services.books_api.base');
+        $timeout = (float) config('services.books_api.timeout', 5);
+
+        // Example endpoints you might expose on your API:
+        // POST /books/{id}/decrement  { "quantity": 3 }
+        // or PATCH /books/{id}        { "stock_change": -3 }
+        $res = Http::timeout($timeout)
+            ->acceptJson()
+            ->post("$base/books/$bookId/decrement", ['quantity' => $qty]);
+
+        return $res->ok();
+    }
+
+    /** Read user profile (address, points, etc.) from Users API */
+    private function fetchUser(int $id): ?object
+    {
+        $base    = config('services.users_api.base');
+        $timeout = (float) config('services.users_api.timeout', 5);
+
+        $res = Http::retry(2, 150)->timeout($timeout)->acceptJson()->get("$base/users/$id");
+        if (!$res->ok()) return null;
+
+        $payload = $res->json();
+        $u = $payload['data'] ?? $payload;
+
+        return (object) [
+            'id'      => (int)($u['id'] ?? $id),
+            'name'    => $u['name'] ?? null,
+            'address' => $u['address'] ?? '',
+            'points'  => (int)($u['points'] ?? 0),
+            // add more fields if needed
+        ];
+    }
+
+    /** Redeem points via Users API */
+    private function redeemUserPoints(int $userId, int $points): bool
+    {
+        if ($points <= 0) return true;
+
+        $base    = config('services.users_api.base');
+        $timeout = (float) config('services.users_api.timeout', 5);
+
+        // Example endpoint:
+        // POST /users/{id}/points/redeem { "points": 250 }
+        $res = Http::timeout($timeout)
+            ->acceptJson()
+            ->post("$base/users/$userId/points/redeem", ['points' => $points]);
+
+        return $res->ok();
+    }
+
+    /** Attach API "book" objects to items collection */
+    private function hydrateItemsWithBooks($items)
+    {
+        return $items->map(function ($it) {
+            $it->book = $this->fetchBook((int) $it->book_id);
+            return $it;
+        });
+    }
+
+    /* -----------------------------
+     |  Screens / Actions
+     |------------------------------*/
+
     // Customer: list their orders
     public function index()
     {
-        $orders = Order::with('items.book')
+        // Do NOT eager-load items.book via Eloquent; we'll hydrate from API
+        $orders = Order::with('items')  // no ->with('items.book')
             ->where('user_id', auth()->id())
             ->orderByDesc('order_date')
             ->paginate(200);
+
+        // Optionally hydrate "book" for each order's items
+        $orders->getCollection()->transform(function ($order) {
+            $order->setRelation('items', $this->hydrateItemsWithBooks($order->items));
+            return $order;
+        });
 
         return view('orders.index', compact('orders'));
     }
 
     public function updateAddress(Request $request, Order $order)
-{
-    $this->authorizeAdminOrOwner($order);
-    if ($order->status !== Order::STATUS_PROCESSING) {
-        return back()->with('err', 'You can only change the address while the order is Processing.');
-    }
+    {
+        $this->authorizeAdminOrOwner($order);
+        if ($order->status !== Order::STATUS_PROCESSING) {
+            return back()->with('err', 'You can only change the address while the order is Processing.');
+        }
 
-    $data = $request->validate([
-        'shipping_address' => ['required','string','max:2000'],
-    ]);
-
-    $order->load('shipment');
-    if ($order->shipment) {
-        $order->shipment->update(['shipping_address' => $data['shipping_address']]);
-    } else {
-        // safety: create if absent
-        Shipment::create([
-            'order_id' => $order->id,
-            'shipping_address' => $data['shipping_address'],
+        $data = $request->validate([
+            'shipping_address' => ['required','string','max:2000'],
         ]);
-    }
 
-    return back()->with('ok', 'Shipping address updated.');
-}
+        $order->load('shipment');
+        if ($order->shipment) {
+            $order->shipment->update(['shipping_address' => $data['shipping_address']]);
+        } else {
+            Shipment::create([
+                'order_id'         => $order->id,
+                'shipping_address' => $data['shipping_address'],
+            ]);
+        }
+
+        return back()->with('ok', 'Shipping address updated.');
+    }
 
     // Customer: show one order
     public function show(Order $order)
     {
-        abort_unless($order->user_id === auth()->id() || auth()->user()->role === 'admin', 403);
-        $order->load('items.book','shipment','transactions');
+        $this->authorizeAdminOrOwner($order);
+
+        // load relations except book; then hydrate book via API
+        $order->load('items','shipment','transactions');
+        $order->setRelation('items', $this->hydrateItemsWithBooks($order->items));
+
         return view('orders.show', compact('order'));
     }
 
-  
     public function showCheckout()
     {
-        $items = \App\Models\CartItem::with('book')
-            ->where('user_id', auth()->id())->get();
-
+        // Pull cart items (local), but hydrate book via API (NOT Eloquent)
+        $items = CartItem::where('user_id', auth()->id())->get();
         if ($items->isEmpty()) {
             return redirect()->route('cart.index')->with('err','Your cart is empty.');
         }
+        $items = $this->hydrateItemsWithBooks($items);
 
-        $subtotal    = $items->sum(fn($i) => $i->quantity * ($i->book->price ?? 0));
-        $user        = auth()->user();
-        $userAddress = $user->address ?? '';
-        $userPoints  = (int) ($user->points ?? 0); // <-- points column on users table
+        // Read user from API (address & points), not DB
+        $apiUser = $this->fetchUser((int) auth()->id());
+        if (!$apiUser) {
+            return redirect()->route('cart.index')->with('err','Unable to load your profile. Please try again.');
+        }
+
+        $subtotal    = $items->sum(fn($i) => ((int)$i->quantity) * (float)($i->book->price ?? 0));
+        $userAddress = (string) $apiUser->address;
+        $userPoints  = (int) $apiUser->points;
 
         return view('orders.checkout', compact('items','subtotal','userAddress','userPoints'));
     }
 
+public function checkout(Request $req)
+{
+    $req->validate([
+        'payment_method'   => ['required','string','max:100'],
+        'shipping_address' => ['required','string','max:2000'],
+        'shipping_method'  => ['nullable','in:standard,express'],
+        'shipping_amount'  => ['nullable','numeric','min:0'],
+        'order_note'       => ['nullable','string','max:2000'],
+        'use_points'       => ['sometimes','boolean'],
+    ]);
 
+    $manager  = app(PaymentManager::class);
+    $strategy = $manager->resolve($req->payment_method);
+    $strategy->validate($req);
 
-    public function checkout(Request $req)
-    {
-        $req->validate([
-            'payment_method'   => ['required','string','max:100'],
-            'shipping_address' => ['required','string','max:2000'],
-            'shipping_method'  => ['nullable','in:standard,express'],
-            'shipping_amount'  => ['nullable','numeric','min:0'],
-            'order_note'       => ['nullable','string','max:2000'],
-            'use_points'       => ['sometimes','boolean'],
-        ]);
+    $userId = (int) auth()->id();
 
-        $manager  = app(\App\Payments\PaymentManager::class);
-        $strategy = $manager->resolve($req->payment_method);
-        $strategy->validate($req);
+    // cart items (local) + hydrate books via API
+    $items = CartItem::where('user_id', $userId)->get();
+    if ($items->isEmpty()) {
+        return redirect()->route('cart.index')->with('err','Your cart is empty.');
+    }
+    $items = $this->hydrateItemsWithBooks($items);
 
-        $userId = auth()->id();
-        $items  = CartItem::with('book')->where('user_id', $userId)->get();
-        if ($items->isEmpty()) {
-            return redirect()->route('cart.index')->with('err','Your cart is empty.');
+    // user (via API)
+    $apiUser = $this->fetchUser($userId);
+    if (!$apiUser) {
+        return back()->with('err', 'Unable to load your profile.');
+    }
+
+    $shipping = (float) $req->input('shipping_amount', 0);
+
+    // Totals
+    $subtotal = $items->sum(fn($i) => ((int)$i->quantity) * (float)($i->book->price ?? 0));
+    $preTotal = $subtotal + $shipping;
+
+    // Points: 100 pts = RM1
+    $availablePoints   = (int) $apiUser->points;
+    $maxRedeemablePts  = (int) round($preTotal * 100);
+    $willUsePoints     = (bool) $req->boolean('use_points');
+    $pointsUsed        = $willUsePoints ? min($availablePoints, $maxRedeemablePts) : 0;
+    $discount          = $pointsUsed / 100.0;
+    $total             = max(0, $preTotal - $discount);
+
+    $notes = cleanLimitedHtml($req->input('order_note'));
+
+    /* ----------------------------
+     * Step 1: Reserve stock via API
+     * ---------------------------- */
+    $reservations = [];
+    foreach ($items as $ci) {
+        $book = $ci->book;
+        if (!$book) {
+            return back()->with('err', "Book #{$ci->book_id} not found");
+        }
+        if ($book->stock < $ci->quantity) {
+            return back()->with('err', "Not enough stock for {$book->title}");
         }
 
-        $shipping = (float) $req->input('shipping_amount', 0);
+        $ok = $this->decrementBookStock((int)$book->id, (int)$ci->quantity);
+        if (!$ok) {
+            // rollback any prior reservations
+            foreach ($reservations as [$bid, $qty]) {
+                $this->incrementBookStock($bid, $qty);
+            }
+            return back()->with('err', "Failed to reserve stock for {$book->title}");
+        }
+        $reservations[] = [(int)$book->id, (int)$ci->quantity];
+    }
 
-        $order = DB::transaction(function () use ($userId, $items, $req, $shipping, $strategy) {
-            // lock user to avoid race conditions while spending points
-            $user = \App\Models\User::lockForUpdate()->findOrFail($userId);
-
-            $subtotal = $items->sum(fn($i) => $i->quantity * ($i->book->price ?? 0));
-            $preTotal = $subtotal + $shipping;
-
-            // points are whole points; 100 points = RM1
-            $availablePoints   = (int) ($user->points ?? 0);
-            $maxRedeemablePts  = (int) round($preTotal * 100);           // total in "points"
-            $willUsePoints     = (bool) $req->boolean('use_points');
-            $pointsUsed        = $willUsePoints ? min($availablePoints, $maxRedeemablePts) : 0;
-            $discount          = $pointsUsed / 100.0;
-            $total             = max(0, $preTotal - $discount);
-
-            $notes = cleanLimitedHtml($req->input('order_note'));
-
+    try {
+        /* ----------------------------------------
+         * Step 2: Persist order in a short TX
+         * ---------------------------------------- */
+        $order = DB::transaction(function () use ($userId, $items, $req, $subtotal, $shipping, $discount, $total, $notes) {
 
             $order = Order::create([
                 'user_id'         => $userId,
                 'order_date'      => now(),
                 'status'          => Order::STATUS_PROCESSING,
                 'subtotal_amount' => $subtotal,
-                'discount_amount' => $discount,    // <-- value of points used in RM
-                'shipping_amount' => $shipping,    // (make sure column exists)
+                'discount_amount' => $discount,
+                'shipping_amount' => $shipping,
                 'total_amount'    => $total,
                 'payment_method'  => $req->payment_method,
                 'notes'           => $notes,
             ]);
 
-            // Items + stock movement
             foreach ($items as $ci) {
-                $book = Book::lockForUpdate()->find($ci->book_id);
-                if (!$book) abort(400, "Book #{$ci->book_id} not found");
-                if ($book->stock < $ci->quantity) abort(400, "Not enough stock for {$book->title}");
-
+                $book = $ci->book;
                 OrderItem::create([
                     'order_id'   => $order->id,
-                    'book_id'    => $book->id,
-                    'quantity'   => $ci->quantity,
-                    'unit_price' => $book->price,
-                ]);
-
-                $book->decrement('stock', $ci->quantity);
-
-                DB::table('stock_movements')->insert([
-                    'book_id'          => $book->id,
-                    'user_id'          => $userId,
-                    'type'             => 'sale',
-                    'quantity_change'  => -$ci->quantity,
-                    'reason'           => 'Order #'.$order->id,
-                    'created_at'       => now(),
-                    'updated_at'       => now(),
+                    'book_id'    => (int) $book->id,
+                    'quantity'   => (int) $ci->quantity,
+                    'unit_price' => (float) $book->price,
                 ]);
             }
 
-            // shipment row
             Shipment::create([
                 'order_id'         => $order->id,
                 'shipping_address' => $req->shipping_address,
             ]);
 
-            // charge (total already includes shipping - discount)
-            $strategy->charge($order, $total, $req->all());
-
-            // deduct points used
-            if ($pointsUsed > 0) {
-                $user->decrement('points', $pointsUsed);
-                // Optional: record points redemption as a transaction note/event
-            }
-
-            CartItem::where('user_id', $userId)->delete();
-
             return $order;
         });
 
+        /* ----------------------------------------
+         * Step 3: Charge payment
+         * ---------------------------------------- */
+        $strategy->charge($order, $total, $req->all());
+
+        /* ----------------------------------------
+         * Step 4: Redeem points via Users API
+         * ---------------------------------------- */
+        if ($pointsUsed > 0) {
+            $ok = $this->redeemUserPoints($userId, $pointsUsed);
+            if (!$ok) {
+                // not fatal: you could rollback, or just log
+                logger()->warning("Points redemption failed for user $userId, order {$order->id}");
+            }
+        }
+
+        /* ----------------------------------------
+         * Step 5: Clear cart
+         * ---------------------------------------- */
+        CartItem::where('user_id', $userId)->delete();
+
         return redirect()->route('orders.show', $order)->with('ok','Payment successful. Order created.');
+
+    } catch (\Throwable $e) {
+        // Compensate stock if local order fails
+        foreach ($reservations as [$bid, $qty]) {
+            $this->incrementBookStock($bid, $qty);
+        }
+        throw $e;
     }
+}
 
 
-
-    // ===== State transitions (example endpoints) =====
+    // ===== State transitions =====
 
     public function ship(Order $order)
     {
-        $this->authorizeAdminOrOwner($order); // tailor to your policy/middleware
+        $this->authorizeAdminOrOwner($order);
         $order->load('items','shipment');
         $order->state()->ship();
         return back()->with('ok', 'Order shipped');
@@ -217,12 +359,8 @@ class OrderController extends Controller
     {
         $user = auth()->user();
         if (! $user) abort(401);
-
-        // allow staff too
         if (in_array($user->role, ['admin','staff'], true)) return;
-
         if ($order->user_id === $user->id) return;
         abort(403);
     }
-
 }

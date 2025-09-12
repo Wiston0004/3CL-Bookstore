@@ -41,4 +41,15 @@ return [
         ],
     ],
 
+    'books_api' => [
+        'base'    => env('BOOKS_API_BASE', 'http://127.0.0.1:8000/api/v1'),
+        'timeout' => (float) env('BOOKS_API_TIMEOUT', 5),
+    ],
+
+    'users_api' => [
+        'base'    => env('USERS_API_BASE', 'http://127.0.0.1:8000/api/v1'),
+        'timeout' => (float) env('USERS_API_TIMEOUT', 5),
+    ],
+
+
 ];

@@ -122,7 +122,7 @@
               <td class="right">
                 <div class="row" style="gap:8px;justify-content:flex-end;flex-wrap:nowrap">
                   @if($book)
-                    <a href="{{ route('customer.show', $book) }}" class="pill">View</a>
+                    <a href="{{ route('customer.show', $book->id) }}" class="pill">View</a>
                   @endif
 
                   <form method="POST" action="{{ route('cart.remove', $it) }}">
