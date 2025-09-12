@@ -10,7 +10,7 @@ class AnnouncementController extends Controller
 {
     public function index()
     {
-        $announcements = Announcement::latest()->paginate(10);
+        $announcements = Announcement::orderByDesc('created_at')->paginate(10);
         return view('staff.announcements.index', compact('announcements'));
     }
 
@@ -24,6 +24,7 @@ class AnnouncementController extends Controller
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'body' => 'required|string',
+            'status' => 'required|in:draft,scheduled,sent,failed',
             'channels' => 'nullable|array', // e.g. ['mail','sms']
         ]);
 
@@ -51,6 +52,7 @@ class AnnouncementController extends Controller
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'body' => 'required|string',
+            'status' => 'required|in:draft,scheduled,sent,failed',
         ]);
 
         $announcement->update($data);

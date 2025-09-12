@@ -5,6 +5,7 @@
   @if(session('ok'))<div class="card" style="border-left:4px solid var(--ok)">{{ session('ok') }}</div>@endif
 
   <div class="row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <a href="{{ route('dashboard.staff') }}" class="pill">← Back to Staff Home</a>
     <h2>Manage Announcements</h2>
     <a class="btn primary" href="{{ route('staff.ann.create') }}">➕ Create Announcement</a>
   </div>

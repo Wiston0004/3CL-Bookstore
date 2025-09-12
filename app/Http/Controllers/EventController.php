@@ -31,6 +31,7 @@ class EventController extends Controller
             'starts_at' => 'required|date',
             'ends_at' => 'nullable|date|after_or_equal:starts_at',
             'visibility' => 'required|string',
+            'status' => 'required|in:draft,scheduled,sent,failed',
             'points_reward' => 'nullable|integer|min:0',
         ]);
 
@@ -60,6 +61,7 @@ class EventController extends Controller
             'starts_at' => 'required|date',
             'ends_at' => 'nullable|date|after_or_equal:starts_at',
             'visibility' => 'required|string',
+            'status' => 'required|in:draft,scheduled,sent,failed',
             'points_reward' => 'nullable|integer|min:0',
         ]);
 

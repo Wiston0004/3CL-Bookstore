@@ -127,10 +127,25 @@
 
       <div class="card">
         <h3 style="margin:0 0 8px">📢 Announcements</h3>
-        <ul style="margin:0;padding-left:18px">
-          <li class="muted">Weekly stock take every Friday 4:00 PM.</li>
-          <li class="muted">New arrivals shelf to be updated within 24 hours.</li>
-        </ul>
+        @php
+          use App\Models\Announcement;
+          $announcements = \App\Models\Announcement::latest()->take(5)->get();
+        @endphp
+
+        @if($announcements->count())
+          <ul style="margin:0;padding-left:18px;list-style:none">
+            @foreach($announcements as $a)
+              <li style="margin-bottom:10px;border-bottom:1px solid #202750;padding:6px 0">
+                <strong>{{ $a->title }}</strong><br>
+                <span class="muted" style="font-size:13px">
+                  {{ $a->body }}
+                </span>
+              </li>
+            @endforeach
+          </ul>
+        @else
+          <div class="muted">No announcements yet.</div>
+        @endif
       </div>
 
       {{-- 📈 Report Analysis --}}
