@@ -1,107 +1,78 @@
 <?php
 
-namespace App\Http\Controllers\API;
+namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\EventResource;
-use App\Http\Resources\EventRegistrationResource;
 use App\Models\Event;
-use App\Models\EventRegistration;
-use App\Jobs\ScheduleEventJob;
-use App\Jobs\CancelEventJob;
-use App\Jobs\AwardPointsForRegistration;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class EventApiController extends Controller
 {
-    // Staff + Customer: list events
+    // GET /api/v1/staff/events
     public function index()
     {
-        $events = Event::latest('starts_at')->paginate(10);
-        return EventResource::collection($events);
+        return response()->json(Event::latest()->paginate(10));
     }
 
-    // Staff: create event
-    public function store(Request $request)
-    {
-        $this->authorizeRole('staff');
-
-        $data = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'type' => 'required|string',
-            'delivery_mode' => 'required|string',
-            'starts_at' => 'required|date',
-            'ends_at' => 'nullable|date|after_or_equal:starts_at',
-            'visibility' => 'required|string',
-            'points_reward' => 'nullable|integer|min:0',
-        ]);
-
-        $data['slug'] = Str::slug($data['title']) . '-' . uniqid();
-        $data['organizer_id'] = $request->user()->id;
-        $data['status'] = Event::DRAFT;
-
-        $event = Event::create($data);
-        ScheduleEventJob::dispatch($event->id);
-
-        return new EventResource($event);
-    }
-
-    // Staff + Customer: view event
+    // GET /api/v1/staff/events/{event}
     public function show(Event $event)
     {
-        return new EventResource($event);
+        return response()->json($event);
     }
 
-    // Staff: update event
+    // POST /api/v1/staff/events
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'title'        => 'required|string|max:255',
+            'description'  => 'nullable|string',
+            'type'         => 'required|string',
+            'delivery_mode'=> 'required|in:online,onsite,hybrid',
+            'starts_at'    => 'required|date',
+            'ends_at'      => 'nullable|date|after_or_equal:starts_at',
+            'visibility'   => 'required|in:public,private,targeted',
+            'status'       => 'required|in:draft,scheduled,live,completed,cancelled',
+            'points_reward'=> 'nullable|integer|min:0',
+            'event_image'  => 'nullable|string' // path/url
+        ]);
+
+        $event = Event::create($data);
+
+        return response()->json([
+            'message' => 'Event created successfully',
+            'data'    => $event
+        ], 201);
+    }
+
+    // PUT /api/v1/staff/events/{event}
     public function update(Request $request, Event $event)
     {
-        $this->authorizeRole('staff');
-
         $data = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'type' => 'required|string',
-            'delivery_mode' => 'required|string',
-            'starts_at' => 'required|date',
-            'ends_at' => 'nullable|date|after_or_equal:starts_at',
-            'visibility' => 'required|string',
-            'points_reward' => 'nullable|integer|min:0',
+            'title'        => 'sometimes|string|max:255',
+            'description'  => 'nullable|string',
+            'type'         => 'sometimes|string',
+            'delivery_mode'=> 'sometimes|in:online,onsite,hybrid',
+            'starts_at'    => 'sometimes|date',
+            'ends_at'      => 'nullable|date|after_or_equal:starts_at',
+            'visibility'   => 'sometimes|in:public,private,targeted',
+            'status'       => 'sometimes|in:draft,scheduled,live,completed,cancelled',
+            'points_reward'=> 'nullable|integer|min:0',
+            'event_image'  => 'nullable|string'
         ]);
 
         $event->update($data);
-        return new EventResource($event);
+
+        return response()->json([
+            'message' => 'Event updated successfully',
+            'data'    => $event
+        ]);
     }
 
-    // Staff: delete/cancel event
+    // DELETE /api/v1/staff/events/{event}
     public function destroy(Event $event)
     {
-        $this->authorizeRole('staff');
+        $event->delete();
 
-        CancelEventJob::dispatch($event->id, 'Deleted via API');
-        return response()->json(['ok' => true, 'message' => 'Event cancelled.']);
-    }
-
-    // Customer: register for event
-    public function register(Request $request, Event $event)
-    {
-        $this->authorizeRole('customer');
-
-        $registration = EventRegistration::firstOrCreate([
-            'event_id' => $event->id,
-            'user_id' => $request->user()->id,
-        ]);
-
-        AwardPointsForRegistration::dispatch($registration->id);
-
-        return new EventRegistrationResource($registration);
-    }
-
-    private function authorizeRole(string $required)
-    {
-        if (auth()->user()->role !== $required) {
-            abort(403, "Only {$required} can perform this action.");
-        }
+        return response()->json(['message' => 'Event deleted successfully']);
     }
 }
