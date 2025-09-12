@@ -12,7 +12,7 @@ use App\Http\Controllers\API\EventApiController;
 use App\Http\Controllers\API\AnnouncementApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\OrderApiController;
-
+use App\Http\Controllers\Api\PointsApiController;   // 👈 NEW import
 
 Route::prefix('v1')->group(function () {
 
@@ -30,7 +30,6 @@ Route::prefix('v1')->group(function () {
     // Manager-only: User JSON CRUD (NO trashed/restore)
     Route::middleware(['auth:sanctum', 'role:manager', 'throttle:api'])
         ->prefix('manager')->name('api.manager.')->group(function () {
-
         Route::apiResource('users', ApiUserController::class)
             ->only(['index', 'show', 'store', 'update', 'destroy']);
     });
@@ -74,18 +73,22 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     // --- ORDERS (customer) ---
     Route::middleware('auth:sanctum')->name('api.orders.')->group(function () {
         Route::get   ('/orders',               [OrderApiController::class, 'index'])->name('index');
-        Route::post  ('/orders',               [OrderApiController::class, 'store'])->name('store'); // optional: direct create by items
+        Route::post  ('/orders',               [OrderApiController::class, 'store'])->name('store');
         Route::get   ('/orders/{order}',       [OrderApiController::class, 'show'])->name('show');
-        Route::patch ('/orders/{order}',       [OrderApiController::class, 'update'])->name('update'); // update address
-        Route::patch ('/orders/{order}/cancel',[OrderApiController::class, 'cancel'])->name('cancel'); // customer cancel if pending
-        // checkout (create order from current cart)
+        Route::patch ('/orders/{order}',       [OrderApiController::class, 'update'])->name('update');
+        Route::patch ('/orders/{order}/cancel',[OrderApiController::class, 'cancel'])->name('cancel');
         Route::post  ('/checkout',             [OrderApiController::class, 'checkout'])->name('checkout');
     });
 
-     Route::middleware(['auth:sanctum','role:staff,manager'])->group(function () {
-    Route::get('/staff/orders', [OrderApiController::class, 'staffIndex']);
-    Route::get('/staff/orders/{order}', [OrderApiController::class, 'staffShow']);
-});
+    // --- STAFF/MANAGER ---
+    Route::middleware(['auth:sanctum','role:staff,manager'])->group(function () {
+        Route::get('/staff/orders', [OrderApiController::class, 'staffIndex']);
+        Route::get('/staff/orders/{order}', [OrderApiController::class, 'staffShow']);
+
+        // 👇 NEW Redeem Points route
+        Route::post('/users/{user}/points/redeem', [PointsApiController::class, 'redeem'])
+            ->name('api.users.points.redeem');
+    });
 });
 
 Route::prefix('v1')->group(function () {
