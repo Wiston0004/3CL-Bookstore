@@ -21,7 +21,7 @@ class CustomerSeeder extends Seeder
                     'role'     => 'customer',
                     'phone'    => '019' . str_pad((string)$i, 7, '0', STR_PAD_LEFT),
                     'address'  => "No. {$i}, Customer Lane",
-                    'points'   => $i === 1 ? 100 : 0, // first one gets starter points
+                    'points'   => 100,  //$i === 1 ? 100 : 0, first one gets starter points
                 ]
             );
         }
