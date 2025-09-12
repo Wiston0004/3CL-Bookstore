@@ -26,19 +26,48 @@ class PointsApiController extends Controller
                 abort(422, 'Insufficient points');
             }
 
-            $u->points -= $data['points'];
+            $u->points -= (int) $data['points'];
             $u->save();
 
             return [
                 'user_id'   => $u->id,
-                'redeemed'  => $data['points'],
-                'remaining' => $u->points,
+                'redeemed'  => (int) $data['points'],
+                'remaining' => (int) $u->points,
             ];
         });
 
         return response()->json([
             'message' => 'Points redeemed successfully.',
             'data'    => $result,
+        ], 200);
+    }
+
+    /**
+     * Add user points
+     * POST /api/v1/users/{user}/points/add
+     */
+    public function add(Request $request, User $user)
+    {
+        $data = $request->validate([
+            'points' => ['required', 'integer', 'min:1'],
         ]);
+
+        $result = DB::transaction(function () use ($user, $data) {
+            $u = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            $u->points += (int) $data['points'];
+            $u->save();
+
+            return [
+                'user_id'  => $u->id,
+                'added'    => (int) $data['points'],
+                'balance'  => (int) $u->points,
+            ];
+        });
+
+        return response()->json([
+            'message' => 'Points added successfully.',
+            'data'    => $result,
+        ], 200);
     }
 }

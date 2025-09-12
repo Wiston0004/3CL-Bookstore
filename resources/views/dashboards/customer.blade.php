@@ -7,6 +7,7 @@
 @php
   use App\Models\Book;
   use App\Models\Category;
+  use App\Models\Event as EventModel;
 
   // SIMPLE FALLBACKS (move to controller later if you prefer)
   $newArrivals = $newArrivals
@@ -20,13 +21,24 @@
 
   $totalBooks = $totalBooks ?? Book::whereNull('deleted_at')->count();
 
-  // Promo slides (provide from controller if you want)
-  $promos = $promos ?? [
-    ['img' => asset('images/promos/merdeka-15.jpg'),      'url' => route('customer.index'), 'alt' => '15% Off All Books + RM5 e-Voucher'],
-    ['img' => asset('images/promos/indie-week.jpg'),      'url' => route('customer.index'), 'alt' => 'Indie Week • Staff Picks'],
-    ['img' => asset('images/promos/back-to-school.jpg'),  'url' => route('customer.index'), 'alt' => 'Back to School Essentials'],
-    ['img' => asset('images/promos/author-spotlight.jpg'),'url' => route('customer.index'), 'alt' => 'Author Spotlight'],
-  ];
+  // Events as promos (latest 5 with images)
+  $eventPromos = EventModel::whereNotNull('image_path')
+      ->orderByDesc('starts_at')
+      ->take(5)
+      ->get(['id','title','slug','image_path']);
+
+  $promos = $eventPromos->count()
+      ? $eventPromos->map(fn($e) => [
+          'img' => asset('storage/'.$e->image_path),
+          'url' => route('cust.events.show', $e->slug),
+          'alt' => $e->title,
+        ])
+      : collect([
+          ['img' => asset('images/promos/merdeka-15.jpg'), 'url' => route('cust.events.index'), 'alt' => '15% Off All Books + RM5 e-Voucher'],
+          ['img' => asset('images/promos/indie-week.jpg'), 'url' => route('cust.events.index'), 'alt' => 'Indie Week • Staff Picks'],
+          ['img' => asset('images/promos/back-to-school.jpg'), 'url' => route('cust.events.index'), 'alt' => 'Back to School Essentials'],
+          ['img' => asset('images/promos/author-spotlight.jpg'), 'url' => route('cust.events.index'), 'alt' => 'Author Spotlight'],
+        ]);
 @endphp
 
 <style>

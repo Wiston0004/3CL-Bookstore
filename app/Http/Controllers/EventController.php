@@ -39,6 +39,11 @@ class EventController extends Controller
         $data['organizer_id'] = auth()->id();
         $data['status'] = 'draft';
 
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('events', 'public');
+            $data['image_path'] = $path;
+        }
+        
         // 🔹 Command Pattern: delegate scheduling to a Job
         $event = Event::create($data);
         ScheduleEventJob::dispatch($event->id);
@@ -64,6 +69,11 @@ class EventController extends Controller
             'status' => 'required|in:draft,scheduled,sent,failed',
             'points_reward' => 'nullable|integer|min:0',
         ]);
+
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('events', 'public');
+            $data['image_path'] = $path;
+        }
 
         $event->update($data);
         return redirect()->route('staff.events.index')->with('ok', 'Event updated.');

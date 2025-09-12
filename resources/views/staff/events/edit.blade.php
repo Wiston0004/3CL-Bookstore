@@ -24,6 +24,10 @@
       </div>
       <div><label>Points Reward</label><input type="number" name="points_reward" class="input" value="{{ $event->points_reward }}"></div>
       <div style="grid-column:1/-1"><label>Description</label><textarea name="description" class="input">{{ $event->description }}</textarea></div>
+      <div>
+        <label>Event Image</label>
+        <input type="file" name="image" class="input">
+      </div>
       <div style="grid-column:1/-1"><button class="btn primary">Update</button></div>
     </form>
   </div>

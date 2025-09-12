@@ -32,7 +32,7 @@ class EventRegistrationController extends Controller
         EventRegistration::firstOrCreate(
             ['event_id'=>$event->id,'user_id'=>auth()->id()],
             [
-'name'=>optional(auth()->user())->name ?? $r->input('name'),
+                'name'=>optional(auth()->user())->name ?? $r->input('name'),
                 'email'=>optional(auth()->user())->email ?? $r->input('email'),
                 'phone'=>$r->input('phone'),
                 'status'=>'registered','source'=>'web'

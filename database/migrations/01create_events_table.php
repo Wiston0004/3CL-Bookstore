@@ -20,13 +20,13 @@ return new class extends Migration
             $table->enum('visibility', ['public','private','targeted'])->default('public');
             $table->enum('status', ['draft','scheduled','live','completed','cancelled'])->default('draft');
             $table->integer('points_reward')->default(0);
+            $table->string('image_path')->nullable();
             $table->unsignedBigInteger('organizer_id')->nullable();
             $table->string('join_url')->nullable();
             $table->string('venue_name')->nullable();
             $table->string('address')->nullable();
             $table->timestamps();
             $table->softDeletes();
-
             $table->foreign('organizer_id')->references('id')->on('users')->onDelete('set null');
         });
     }

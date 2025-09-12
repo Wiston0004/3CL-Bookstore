@@ -30,6 +30,8 @@ class EventCustomerController extends Controller
         // 🔹 Command Pattern: award points asynchronously
         AwardPointsForRegistration::dispatch($registration->id);
 
-        return back()->with('ok', 'You registered for this event. Points will be awarded.');
+        return redirect()
+        ->route('cust.events.show', $event->slug)
+        ->with('ok', '🎉 You have successfully registered for this event!');
     }
 }

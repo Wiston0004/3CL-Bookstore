@@ -6,6 +6,6 @@ class WeeklySalesReport extends AbstractSalesReport
 {
     protected function bucketExpr(): string
     {
-        return "YEARWEEK($this->dateCol, 1)";
+        return "YEARWEEK(sm.created_at, 1)";
     }
 }

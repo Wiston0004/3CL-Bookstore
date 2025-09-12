@@ -12,7 +12,11 @@ use App\Http\Controllers\API\EventApiController;
 use App\Http\Controllers\API\AnnouncementApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\OrderApiController;
-use App\Http\Controllers\Api\PointsApiController;   // 👈 NEW import
+use App\Http\Controllers\Api\PointsApiController;  
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 Route::prefix('v1')->group(function () {
 
@@ -125,4 +129,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/announcements/{announcement}', [AnnouncementCustomerController::class,'show'])->name('api.cust.ann.show');
     });
 
+});
+
+Route::prefix('v1')->group(function () {
+    Route::get('users/{user}/points', [PointsApiController::class, 'show']);
+    Route::post('users/{user}/points/redeem', [PointsApiController::class, 'redeem']);
 });
