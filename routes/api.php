@@ -56,32 +56,6 @@ Route::prefix('v1')->group(function () {
     Route::get('/inventory/{book}/stock', [InventoryApiController::class, 'stock']);
     Route::post('/inventory/adjust', [InventoryApiController::class, 'adjust']);
 
-    // ----------------- STAFF API -----------------
-    Route::middleware(['auth:sanctum','role:staff'])->group(function () {
-        // Events CRUD
-        Route::get('/events', [EventApiController::class,'index']);
-        Route::post('/events', [EventApiController::class,'store']);
-        Route::get('/events/{event}', [EventApiController::class,'show']);
-        Route::put('/events/{event}', [EventApiController::class,'update']);
-        Route::delete('/events/{event}', [EventApiController::class,'destroy']);
-
-        // Announcements CRUD
-        Route::get('/announcements', [AnnouncementApiController::class,'index']);
-        Route::post('/announcements', [AnnouncementApiController::class,'store']);
-        Route::get('/announcements/{announcement}', [AnnouncementApiController::class,'show']);
-        Route::put('/announcements/{announcement}', [AnnouncementApiController::class,'update']);
-        Route::delete('/announcements/{announcement}', [AnnouncementApiController::class,'destroy']);
-    });
-
-    // ----------------- CUSTOMER API -----------------
-    Route::middleware(['auth:sanctum','role:customer'])->group(function () {
-        Route::get('/events', [EventApiController::class,'index']);
-        Route::get('/events/{event}', [EventApiController::class,'show']);
-        Route::post('/events/{event}/register', [EventApiController::class,'register']);
-
-        Route::get('/announcements', [AnnouncementApiController::class,'index']);
-        Route::get('/announcements/{announcement}', [AnnouncementApiController::class,'show']);
-    });
 });
 
 // JSON 404 fallback
@@ -108,4 +82,28 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post  ('/checkout',             [OrderApiController::class, 'checkout'])->name('checkout');
     });
 
+});
+
+Route::prefix('v1')->group(function () {
+    // Authentication
+    Route::prefix('auth')->group(function () {
+        Route::post('/login/{type}', [AuthController::class, 'login'])->name('api.login.role');
+        Route::post('/logout', [Controller::class, 'logout'])->name('api.logout');
+    });
+
+    // Staff routes (protected by auth + role:staff)
+    Route::middleware(['auth:sanctum','role:staff'])->prefix('staff')->group(function () {
+        Route::apiResource('events', EventController::class);
+        Route::apiResource('announcements', AnnouncementController::class);
+    });
+
+    // Customer routes (protected by auth + role:customer)
+    Route::middleware(['auth:sanctum','role:customer'])->group(function () {
+        Route::get('/events', [EventCustomerController::class,'index'])->name('api.cust.events.index');
+        Route::get('/events/{event:slug}', [EventCustomerController::class,'show'])->name('api.cust.events.show');
+        Route::post('/events/{event:slug}/register', [EventCustomerController::class,'register'])->name('api.cust.events.register');
+
+        Route::get('/announcements', [AnnouncementCustomerController::class,'index'])->name('api.cust.ann.index');
+        Route::get('/announcements/{announcement}', [AnnouncementCustomerController::class,'show'])->name('api.cust.ann.show');
+    });
 });
