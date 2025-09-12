@@ -51,9 +51,9 @@
       </div>
     </div>
     <div class="card">
-      <div class="muted">Orders</div>
+      <div class="muted">Movements</div> {{-- changed from Orders --}}
       <div style="font-size:1.6rem;font-weight:700;margin-top:6px">
-        {{ number_format($kpi->orders ?? 0) }}
+        {{ number_format($kpi->movements ?? 0) }}
       </div>
     </div>
     <div class="card">
@@ -63,7 +63,7 @@
       </div>
     </div>
     <div class="card">
-      <div class="muted">Avg Order</div>
+      <div class="muted">Avg Movement Value</div> {{-- changed wording --}}
       <div style="font-size:1.6rem;font-weight:700;margin-top:6px">
         RM {{ number_format($avgOrder, 2) }}
       </div>
@@ -90,7 +90,7 @@
               <tr>
                 <th>Bucket</th>
                 <th class="right">Revenue (RM)</th>
-                <th class="right">Orders</th>
+                <th class="right">Movements</th> {{-- changed --}}
                 <th class="right">Items</th>
               </tr>
             </thead>
@@ -99,7 +99,7 @@
                 <tr>
                   <td>{{ $r->bucket }}</td>
                   <td style="text-align:right">{{ number_format($r->revenue,2) }}</td>
-                  <td style="text-align:right">{{ number_format($r->orders) }}</td>
+                  <td style="text-align:right">{{ number_format($r->movements) }}</td>
                   <td style="text-align:right">{{ number_format($r->items) }}</td>
                 </tr>
               @endforeach
@@ -200,8 +200,8 @@
             pointRadius: 2
           },
           {
-            label: 'Orders',
-            data: series.map(r => Number(r.orders || 0)),
+            label: 'Movements',
+            data: series.map(r => Number(r.movements || 0)), // changed
             borderColor: cBrand2,
             borderDash: [6,4],
             tension: 0.35,

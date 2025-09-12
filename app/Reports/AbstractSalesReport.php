@@ -10,55 +10,55 @@ abstract class AbstractSalesReport
         protected \Carbon\CarbonInterface $start,
         protected \Carbon\CarbonInterface $end,
         protected int $top = 10,
-        protected array $statuses = ['Shipped','Arrived','Completed','Paid','Processing'],
-        protected string $dateCol = 'o.created_at'
+        protected array $types = ['sale'],   // ✅ FIXED: only stock sale
+        protected string $dateCol = 'sm.created_at' // ✅ FIXED: no more o.created_at
     ) {}
 
-    /** Subclasses define how to group the date column (day/week/month) */
     abstract protected function bucketExpr(): string;
 
-    /** TEMPLATE METHOD – fixed reporting algorithm */
     final public function build(): array
     {
-        $bucket     = $this->bucketExpr();
-        $kpi        = $this->computeKPI();
-        $avgOrder   = $this->computeAverageOrder($kpi);
-        $series     = $this->buildSeries($bucket);
-        $topBooks   = $this->buildTopBooks();
-        $byCategory = $this->buildByCategory();
+        $bucket       = $this->bucketExpr();
+        $kpi          = $this->computeKPI();
+        $avgMovement  = $this->computeAverageMovement($kpi);
+        $series       = $this->buildSeries($bucket);
+        $topBooks     = $this->buildTopBooks();
+        $byCategory   = $this->buildByCategory();
 
-        return compact('kpi','avgOrder','series','topBooks','byCategory');
+        return compact('kpi','avgMovement','series','topBooks','byCategory');
+    }
+
+    protected function baseQuery()
+    {
+        return DB::table('stock_movements as sm')
+            ->join('books as b', 'b.id', '=', 'sm.book_id')
+            ->whereBetween($this->dateCol, [$this->start, $this->end])
+            ->whereIn('sm.type', $this->types);
     }
 
     protected function computeKPI()
     {
-        return DB::table('order_items as oi')
-            ->join('orders as o', 'o.id', '=', 'oi.order_id')
-            ->whereBetween($this->dateCol, [$this->start, $this->end])
-            ->whereIn('o.status', $this->statuses)
-            ->selectRaw('SUM(oi.quantity * oi.unit_price) as revenue')
-            ->selectRaw('COUNT(DISTINCT o.id) as orders')
-            ->selectRaw('SUM(oi.quantity) as items')
+        return $this->baseQuery()
+            ->selectRaw('SUM(ABS(sm.quantity_change) * b.price) as revenue')
+            ->selectRaw('COUNT(DISTINCT sm.id) as movements')
+            ->selectRaw('SUM(ABS(sm.quantity_change)) as items')
             ->first();
     }
 
-    protected function computeAverageOrder($kpi): float
+    protected function computeAverageMovement($kpi): float
     {
-        return ($kpi && ($kpi->orders ?? 0) > 0)
-            ? round($kpi->revenue / $kpi->orders, 2)
+        return ($kpi && ($kpi->movements ?? 0) > 0)
+            ? round($kpi->revenue / $kpi->movements, 2)
             : 0.0;
     }
 
     protected function buildSeries(string $bucket)
     {
-        return DB::table('order_items as oi')
-            ->join('orders as o', 'o.id', '=', 'oi.order_id')
-            ->whereBetween($this->dateCol, [$this->start, $this->end])
-            ->whereIn('o.status', $this->statuses)
+        return $this->baseQuery()
             ->selectRaw("$bucket as bucket")
-            ->selectRaw('SUM(oi.quantity * oi.unit_price) as revenue')
-            ->selectRaw('SUM(oi.quantity) as items')
-            ->selectRaw('COUNT(DISTINCT o.id) as orders')
+            ->selectRaw('SUM(ABS(sm.quantity_change) * b.price) as revenue')
+            ->selectRaw('SUM(ABS(sm.quantity_change)) as items')
+            ->selectRaw('COUNT(DISTINCT sm.id) as movements')
             ->groupByRaw($bucket)
             ->orderByRaw($bucket)
             ->get();
@@ -66,14 +66,10 @@ abstract class AbstractSalesReport
 
     protected function buildTopBooks()
     {
-        return DB::table('order_items as oi')
-            ->join('orders as o', 'o.id', '=', 'oi.order_id')
-            ->join('books as b', 'b.id', '=', 'oi.book_id')
-            ->whereBetween($this->dateCol, [$this->start, $this->end])
-            ->whereIn('o.status', $this->statuses)
+        return $this->baseQuery()
             ->select('b.id','b.title')
-            ->selectRaw('SUM(oi.quantity) as qty')
-            ->selectRaw('SUM(oi.quantity * oi.unit_price) as revenue')
+            ->selectRaw('SUM(ABS(sm.quantity_change)) as qty')
+            ->selectRaw('SUM(ABS(sm.quantity_change) * b.price) as revenue')
             ->groupBy('b.id','b.title')
             ->orderByDesc('revenue')
             ->limit($this->top)
@@ -82,16 +78,13 @@ abstract class AbstractSalesReport
 
     protected function buildByCategory()
     {
-        return DB::table('order_items as oi')
-            ->join('orders as o', 'o.id', '=', 'oi.order_id')
-            ->leftJoin('book_category as bc', 'bc.book_id', '=', 'oi.book_id')
+        return $this->baseQuery()
+            ->leftJoin('book_category as bc', 'bc.book_id', '=', 'b.id')
             ->leftJoin('categories as c', 'c.id', '=', 'bc.category_id')
-            ->whereBetween($this->dateCol, [$this->start, $this->end])
-            ->whereIn('o.status', $this->statuses)
             ->selectRaw('COALESCE(c.id, 0) as category_id')
             ->selectRaw("COALESCE(c.name, 'Uncategorized') as category_name")
-            ->selectRaw('SUM(oi.quantity) as qty')
-            ->selectRaw('SUM(oi.quantity * oi.unit_price) as revenue')
+            ->selectRaw('SUM(ABS(sm.quantity_change)) as qty')
+            ->selectRaw('SUM(ABS(sm.quantity_change) * b.price) as revenue')
             ->groupBy('c.id','c.name')
             ->orderByDesc('revenue')
             ->limit(50)

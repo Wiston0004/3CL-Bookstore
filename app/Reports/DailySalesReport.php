@@ -6,6 +6,6 @@ class DailySalesReport extends AbstractSalesReport
 {
     protected function bucketExpr(): string
     {
-        return "DATE($this->dateCol)";
+        return "DATE(sm.created_at)";
     }
 }

@@ -4,39 +4,33 @@ namespace App\Http\Controllers\Manager;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Carbon\CarbonImmutable;
-use App\Reports\DailySalesReport;
-use App\Reports\WeeklySalesReport;
-use App\Reports\MonthlySalesReport;
+use Carbon\Carbon;
+use App\Reports\{DailySalesReport, WeeklySalesReport, MonthlySalesReport};
 
 class SalesReportController extends Controller
 {
-    public function index(Request $req)
+    public function index(Request $request)
     {
-        $tz = 'Asia/Kuala_Lumpur';
+        $start = Carbon::parse($request->query('start', now()->subMonth()->toDateString()))->startOfDay();
+        $end   = Carbon::parse($request->query('end', now()->toDateString()))->endOfDay();
+        $group = $request->query('group', 'day');
+        $top   = (int) $request->query('top', 10);
 
-        $start = $req->filled('start')
-            ? CarbonImmutable::parse($req->get('start'), $tz)->startOfDay()
-            : CarbonImmutable::now($tz)->subDays(30)->startOfDay();
-
-        $end = $req->filled('end')
-            ? CarbonImmutable::parse($req->get('end'), $tz)->endOfDay()
-            : CarbonImmutable::now($tz)->endOfDay();
-
-        $group   = $req->get('group', 'day'); // day|week|month
-        $top     = max(1, (int) $req->get('top', 10));
-        $dateCol = $req->get('date_col', 'o.created_at');
-
-        $statuses = $req->has('status')
-            ? array_values((array)$req->get('status'))
-            : ['Paid','Processing','Shipped','Arrived','Completed'];
-
-        // Pick the right report class
-        $report = match ($group) {
-            'week'  => new WeeklySalesReport($start, $end, $top, $statuses, $dateCol),
-            'month' => new MonthlySalesReport($start, $end, $top, $statuses, $dateCol),
-            default => new DailySalesReport($start, $end, $top, $statuses, $dateCol),
+        // Pick correct subclass
+        $reportClass = match ($group) {
+            'week'  => WeeklySalesReport::class,
+            'month' => MonthlySalesReport::class,
+            default => DailySalesReport::class,
         };
+
+        // ✅ Always pass correct params
+        $report = new $reportClass(
+            start: $start,
+            end: $end,
+            top: $top,
+            types: ['sale'],          // ✅ only stock sales
+            dateCol: 'sm.created_at'  // ✅ stock movement date
+        );
 
         $data = $report->build();
 
@@ -46,7 +40,7 @@ class SalesReportController extends Controller
             'group'      => $group,
             'top'        => $top,
             'kpi'        => $data['kpi'],
-            'avgOrder'   => $data['avgOrder'],
+            'avgOrder'   => $data['avgMovement'], // keep old Blade variable
             'series'     => $data['series'],
             'topBooks'   => $data['topBooks'],
             'byCategory' => $data['byCategory'],
