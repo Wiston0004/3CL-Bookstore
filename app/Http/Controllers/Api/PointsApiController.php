@@ -13,28 +13,33 @@ class PointsApiController extends Controller
      * Redeem (deduct) user points
      * POST /api/v1/users/{user}/points/redeem
      */
-    public function redeem(Request $request, User $user)
+public function redeem(Request $request, User $user)
     {
         $data = $request->validate([
             'points' => ['required', 'integer', 'min:1'],
         ]);
+        $redeem = (int) $data['points'];
 
-        $result = DB::transaction(function () use ($user, $data) {
-            $u = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+        $result = DB::transaction(function () use ($user, $redeem) {
+            // Atomic decrement with guard to prevent negative balances
+            $affected = DB::table('users')
+                ->where('id', $user->id)
+                ->where('points', '>=', $redeem)
+                ->decrement('points', $redeem);
 
-            if ($u->points < $data['points']) {
+            if ($affected === 0) {
                 abort(422, 'Insufficient points');
             }
 
-            $u->points -= (int) $data['points'];
-            $u->save();
+            $remaining = (int) DB::table('users')->where('id', $user->id)->value('points');
 
             return [
-                'user_id'   => $u->id,
-                'redeemed'  => (int) $data['points'],
-                'remaining' => (int) $u->points,
+                'user_id'   => (int) $user->id,
+                'redeemed'  => $redeem,
+                'remaining' => $remaining,
             ];
         });
+
 
         return response()->json([
             'message' => 'Points redeemed successfully.',
@@ -69,5 +74,15 @@ class PointsApiController extends Controller
             'message' => 'Points added successfully.',
             'data'    => $result,
         ], 200);
+    }
+
+    public function show(User $user)
+    {
+        return response()->json([
+            'data' => [
+                'user_id' => (int) $user->id,
+                'points'  => (int) ($user->points ?? 0),
+            ],
+        ]);
     }
 }

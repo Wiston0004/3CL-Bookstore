@@ -15,6 +15,7 @@ class OrderController extends Controller
     /* -----------------------------
      |  Small API client helpers
      |------------------------------*/
+     
 
     private function fetchBook(int $id): ?object
     {
@@ -58,24 +59,86 @@ class OrderController extends Controller
 
     /** Read user profile (address, points, etc.) from Users API */
     private function fetchUser(int $id): ?object
-    {
-        $base    = config('services.users_api.base');
-        $timeout = (float) config('services.users_api.timeout', 5);
+{
+    $base    = rtrim(config('services.users_api.base'), '/');
+    $timeout = (float) config('services.users_api.timeout', 5);
+    $token   = env('USERS_API_TOKEN'); // if your API requires Bearer
 
-        $res = Http::retry(2, 150)->timeout($timeout)->acceptJson()->get("$base/users/$id");
-        if (!$res->ok()) return null;
+    $req = Http::acceptJson()->timeout($timeout);
+    if ($token) $req = $req->withToken($token);
 
-        $payload = $res->json();
-        $u = $payload['data'] ?? $payload;
+    // Try /users/{id}
+    $res = $req->get("$base/users/$id");
 
+    // Fallback to /me if 404/401 patterns
+    if (!$res->ok()) {
+        $res = $req->get("$base/me");
+    }
+
+    if (!$res->ok()) {
+        // final fallback so page still renders
+        $local = auth()->user();
         return (object) [
-            'id'      => (int)($u['id'] ?? $id),
-            'name'    => $u['name'] ?? null,
-            'address' => $u['address'] ?? '',
-            'points'  => (int)($u['points'] ?? 0),
-            // add more fields if needed
+            'id'      => (int)($local->id ?? $id),
+            'name'    => $local->name ?? null,
+            'address' => (string)($local->address ?? ''),
+            'points'  => (int)($local->points ?? 0),
         ];
     }
+
+    $body = $res->json();
+    $u = $body['data'] ?? $body;
+
+    // Map EXACT keys your API returns. Add aliases as needed.
+    $address = $u['address']
+        ?? $u['user_address']
+        ?? $u['shipping_address']
+        ?? ($u['profile']['address'] ?? '')
+        ?? '';
+
+    $points = $u['points']
+        ?? $u['reward_points']
+        ?? $u['loyalty_points']
+        ?? $u['balance_points']
+        ?? 0;
+
+    return (object) [
+        'id'      => (int)($u['id'] ?? $id),
+        'name'    => $u['name'] ?? $u['worker_name'] ?? null,
+        'address' => (string)$address,
+        'points'  => (int)$points,
+    ];
+}
+
+private function fetchUserPoints(int $id): ?int
+{
+    $base    = rtrim(config('services.users_api.base'), '/');
+    $timeout = (float) config('services.users_api.timeout', 5);
+    $token   = env('USERS_API_TOKEN');
+
+    $req = Http::acceptJson()->timeout($timeout);
+    if ($token) $req = $req->withToken($token);
+
+    $url = "$base/users/$id/points";
+    $res = $req->get($url);
+
+    // 🔽 Add this to inspect the API call in your laravel.log
+    logger()->info('fetchUserPoints', [
+        'url'    => $url,
+        'status' => $res->status(),
+        'body'   => $res->body(),
+    ]);
+
+    if (!$res->ok()) return null;
+
+    $j = $res->json();
+    $d = $j['data'] ?? $j;
+
+    return (int)($d['points'] ?? $d['reward_points'] ?? 0);
+}
+
+
+
 
     /** Redeem points via Users API */
     private function redeemUserPoints(int $userId, int $points): bool
@@ -175,12 +238,18 @@ class OrderController extends Controller
         if (!$apiUser) {
             return redirect()->route('cart.index')->with('err','Unable to load your profile. Please try again.');
         }
+        
+if (method_exists($this, 'fetchUserPoints')) {
+    $p = $this->fetchUserPoints((int)$apiUser->id);
+    if ($p !== null) $apiUser->points = $p;
+}
 
-        $subtotal    = $items->sum(fn($i) => ((int)$i->quantity) * (float)($i->book->price ?? 0));
-        $userAddress = (string) $apiUser->address;
-        $userPoints  = (int) $apiUser->points;
+$subtotal    = $items->sum(fn($i) => ((int)$i->quantity) * (float)($i->book->price ?? 0));
+$userAddress = $apiUser->address ?: (auth()->user()->address ?? '');
+$userPoints  = isset($apiUser->points) ? (int)$apiUser->points : (int)(auth()->user()->points ?? 0);
 
-        return view('orders.checkout', compact('items','subtotal','userAddress','userPoints'));
+return view('orders.checkout', compact('items','subtotal','userAddress','userPoints'));
+
     }
 
 public function checkout(Request $req)
@@ -211,6 +280,11 @@ public function checkout(Request $req)
     $apiUser = $this->fetchUser($userId);
     if (!$apiUser) {
         return back()->with('err', 'Unable to load your profile.');
+    }
+
+    if (method_exists($this, 'fetchUserPoints')) {
+        $p = $this->fetchUserPoints($userId);
+        if ($p !== null) $apiUser->points = $p;
     }
 
     $shipping = (float) $req->input('shipping_amount', 0);
@@ -364,3 +438,4 @@ public function checkout(Request $req)
         abort(403);
     }
 }
+

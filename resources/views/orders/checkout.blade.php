@@ -70,8 +70,8 @@
         </div>
 
         <label class="field-label">Address</label>
-        <textarea name="shipping_address" rows="4" class="input" required>
-      {{ old('shipping_address', $userAddress ?? '') }}</textarea>
+        <textarea name="shipping_address" rows="4" class="input" required>{{ old('shipping_address', $userAddress ?? '') }}</textarea>
+
 
         @error('shipping_address')
           <div class="muted-sm" style="color:#fca5a5">{{ $message }}</div>
@@ -205,7 +205,7 @@
       {{-- Discount / Notes --}}
      {{-- 🪙 Rewards --}}
 @php
-  $userPoints = (int) ($userPoints ?? (auth()->user()->points ?? 0));
+  $userPoints = (int) ($userPoints ?? (auth()->user()->points ?? 0)); 
   $pointsRM   = $userPoints / 100;
 @endphp
 
