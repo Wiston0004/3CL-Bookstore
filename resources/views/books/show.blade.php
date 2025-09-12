@@ -103,8 +103,7 @@
     <div class="mt" style="margin-top:18px">
       <h3 style="margin:0 0 6px">Description</h3>
       <p class="muted" style="white-space:pre-line;margin:0">
-        {{ $book->description ?: 'No description provided.' }}
-      </p>
+      {!! e($book->description ?: 'No description provided.') !!}
     </div>
   </div>
 
