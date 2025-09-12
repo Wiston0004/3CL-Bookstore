@@ -2,6 +2,7 @@
 @section('title','Announcements')
 @section('content')
 <div class="wrap">
+  <a href="{{ route('customer.dashboard') }}" class="pill">Back</a>
   <h2>Latest Announcements</h2>
   <div class="grid grid-2">
     @forelse($announcements as $a)

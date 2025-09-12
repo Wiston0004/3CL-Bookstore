@@ -21,6 +21,7 @@ class Event extends Model
         'visibility',
         'status',
         'points_reward',
+        'image_path',
         'organizer_id',
         'join_url',
         'venue_name',
