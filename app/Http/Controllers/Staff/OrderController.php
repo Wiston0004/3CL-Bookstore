@@ -27,7 +27,7 @@ class OrderController extends Controller
                 });
             })
             ->orderByDesc('order_date')
-            ->paginate(20)
+            ->paginate(200)
             ->withQueryString();
 
         return view('staff.orders.index', compact('orders'));
