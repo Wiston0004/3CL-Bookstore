@@ -66,7 +66,8 @@ Route::prefix('v1')->group(function () {
     // Inventory
     // -------------------------------
     Route::get('/inventory/{book}/stock', [InventoryApiController::class, 'stock']);
-    Route::post('/inventory/adjust', [InventoryApiController::class, 'adjust']);
+    Route::post('/books/{book}/decrement', [BookApiController::class, 'decrement']);
+
 });
 
 // -------------------------------
