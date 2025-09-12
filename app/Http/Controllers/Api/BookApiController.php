@@ -29,16 +29,20 @@ class BookApiController extends Controller
         }
 
         $books = $q->latest()->paginate(12);
+
         return response()->json([
             'data' => $books->getCollection()->map(function (Book $b) {
                 return [
-                    'id'         => $b->id,
-                    'title'      => $b->title,
-                    'author'     => $b->author,
-                    'isbn'       => $b->isbn,
-                    'price'      => $b->price,
-                    'stock'      => $b->stock ?? null,
-                    'categories' => $b->categories->pluck('name'),
+                    'id'              => $b->id,
+                    'title'           => $b->title,
+                    'author'          => $b->author,
+                    'isbn'            => $b->isbn,
+                    'price'           => $b->price,
+                    'stock'           => $b->stock ?? null,
+                    'categories'      => $b->categories->pluck('name'),
+                    'cover_image_url' => $b->cover_image_path 
+                        ? asset('storage/' . $b->cover_image_path) 
+                        : null,
                 ];
             })->values(),
             'meta' => [
@@ -61,19 +65,22 @@ class BookApiController extends Controller
 
         return response()->json([
             'data' => [
-                'id'         => $book->id,
-                'title'      => $book->title,
-                'author'     => $book->author,
-                'isbn'       => $book->isbn,
-                'price'      => $book->price,
-                'stock'      => $book->stock ?? null,
-                'categories' => $book->categories->pluck('name'),
-                'reviews'    => $book->reviews->map(fn($rv) => [
+                'id'              => $book->id,
+                'title'           => $book->title,
+                'author'          => $book->author,
+                'isbn'            => $book->isbn,
+                'price'           => $book->price,
+                'stock'           => $book->stock ?? null,
+                'categories'      => $book->categories->pluck('name'),
+                'reviews'         => $book->reviews->map(fn($rv) => [
                     'user_id' => $rv->user_id,
                     'rating'  => $rv->rating,
                     'content' => $rv->content,
                     'date'    => optional($rv->created_at)->toDateTimeString(),
                 ]),
+                'cover_image_url' => $book->cover_image_path 
+                    ? asset('storage/' . $book->cover_image_path) 
+                    : null,
             ],
         ]);
     }
