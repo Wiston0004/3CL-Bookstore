@@ -58,57 +58,26 @@ class OrderController extends Controller
     }
 
     /** Read user profile (address, points, etc.) from Users API */
-    private function fetchUser(int $id): ?object
-{
-    $base    = rtrim(config('services.users_api.base'), '/');
-    $timeout = (float) config('services.users_api.timeout', 5);
-    $token   = env('USERS_API_TOKEN'); // if your API requires Bearer
+     private function fetchUser(int $id): ?object
+    {
+        $base    = config('services.users_api.base');
+        $timeout = (float) config('services.users_api.timeout', 5);
 
-    $req = Http::acceptJson()->timeout($timeout);
-    if ($token) $req = $req->withToken($token);
+        $res = Http::retry(2, 150)->timeout($timeout)->acceptJson()->get("$base/users/$id");
+        if (!$res->ok()) return null;
 
-    // Try /users/{id}
-    $res = $req->get("$base/users/$id");
+        $payload = $res->json();
+        $u = $payload['data'] ?? $payload;
 
-    // Fallback to /me if 404/401 patterns
-    if (!$res->ok()) {
-        $res = $req->get("$base/me");
-    }
-
-    if (!$res->ok()) {
-        // final fallback so page still renders
-        $local = auth()->user();
         return (object) [
-            'id'      => (int)($local->id ?? $id),
-            'name'    => $local->name ?? null,
-            'address' => (string)($local->address ?? ''),
-            'points'  => (int)($local->points ?? 0),
+            'id'      => (int)($u['id'] ?? $id),
+            'name'    => $u['name'] ?? null,
+            'address' => $u['address'] ?? '',
+            'points'  => (int)($u['points'] ?? 0),
+            // add more fields if needed
         ];
     }
 
-    $body = $res->json();
-    $u = $body['data'] ?? $body;
-
-    // Map EXACT keys your API returns. Add aliases as needed.
-    $address = $u['address']
-        ?? $u['user_address']
-        ?? $u['shipping_address']
-        ?? ($u['profile']['address'] ?? '')
-        ?? '';
-
-    $points = $u['points']
-        ?? $u['reward_points']
-        ?? $u['loyalty_points']
-        ?? $u['balance_points']
-        ?? 0;
-
-    return (object) [
-        'id'      => (int)($u['id'] ?? $id),
-        'name'    => $u['name'] ?? $u['worker_name'] ?? null,
-        'address' => (string)$address,
-        'points'  => (int)$points,
-    ];
-}
 
 private function fetchUserPoints(int $id): ?int
 {
@@ -121,13 +90,6 @@ private function fetchUserPoints(int $id): ?int
 
     $url = "$base/users/$id/points";
     $res = $req->get($url);
-
-    // 🔽 Add this to inspect the API call in your laravel.log
-    logger()->info('fetchUserPoints', [
-        'url'    => $url,
-        'status' => $res->status(),
-        'body'   => $res->body(),
-    ]);
 
     if (!$res->ok()) return null;
 
