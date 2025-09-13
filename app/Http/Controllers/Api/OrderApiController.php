@@ -34,92 +34,80 @@ class OrderApiController extends Controller
     /* ----------------------------
      * List orders (index)
      * ---------------------------- */
-    public function index(Request $request)
-    {
-        $orders = Order::where('user_id', $request->user()->id)
-            ->orderByDesc('order_date')
-            ->paginate(10);
+   public function index(Request $request)
+{
+    $orders = Order::where('user_id', $request->user()->id)
+        ->with(['items.book', 'shipment', 'transactions']) 
+        ->orderByDesc('order_date')
+        ->paginate(10);
 
-        $data = $orders->getCollection()->map(function ($order) {
-            $order->load('items', 'shipment', 'transactions'); // only local relations
-
-            // Hydrate user from User API
-            $user = $this->fetchUser($order->user_id);
-
-            // Hydrate books for each order item
-            $items = $order->items->map(function ($item) {
-                $book = $this->fetchBook($item->book_id);
+    $data = $orders->getCollection()->map(function ($order) {
+        return [
+            'id'           => $order->id,
+            'status'       => $order->status,
+            'order_date'   => $order->order_date,
+            'subtotal'     => $order->subtotal_amount,
+            'total'        => $order->total_amount,
+            'user_id'      => $order->user_id, 
+            'items'        => $order->items->map(function ($item) {
                 return [
                     'id'         => $item->id,
                     'quantity'   => $item->quantity,
                     'unit_price' => $item->unit_price,
-                    'book'       => $book,
+                    'book_id'    => $item->book_id, 
                 ];
-            });
+            }),
+            'shipment'     => $order->shipment,
+            'transactions' => $order->transactions,
+        ];
+    });
 
-            return [
-                'id'          => $order->id,
-                'status'      => $order->status,
-                'order_date'  => $order->order_date,
-                'subtotal'    => $order->subtotal_amount,
-                'total'       => $order->total_amount,
-                'user'        => $user,
-                'items'       => $items,
-                'shipment'    => $order->shipment,
-                'transactions'=> $order->transactions,
+    return response()->json([
+        'data' => $data,
+        'meta' => [
+            'current_page' => $orders->currentPage(),
+            'last_page'    => $orders->lastPage(),
+            'per_page'     => $orders->perPage(),
+            'total'        => $orders->total(),
+        ],
+    ]);
+}
 
-            ];
-        });
-
-        // Keep pagination meta
-        return response()->json([
-            'data' => $data,
-            'meta' => [
-                'current_page' => $orders->currentPage(),
-                'last_page'    => $orders->lastPage(),
-                'per_page'     => $orders->perPage(),
-                'total'        => $orders->total(),
-            ],
-        ]);
-    }
 
     /* ----------------------------
      * Show order detail
      * ---------------------------- */
     public function show(Request $request, Order $order)
-    {
-        if ($order->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        $order->load('items', 'shipment', 'transactions'); 
-
-        $user = $this->fetchUser($order->user_id);
-
-        $items = $order->items->map(function ($item) {
-            $book = $this->fetchBook($item->book_id);
-            return [
-                'id'         => $item->id,
-                'quantity'   => $item->quantity,
-                'unit_price' => $item->unit_price,
-                'book'       => $book,
-            ];
-        });
-
-        return response()->json([
-            'data' => [
-                'id'          => $order->id,
-                'status'      => $order->status,
-                'order_date'  => $order->order_date,
-                'subtotal'    => $order->subtotal_amount,
-                'total'       => $order->total_amount,
-                'user'        => $user,
-                'items'       => $items,
-                'shipment'    => $order->shipment,
-                'transactions'=> $order->transactions,
-            ]
-        ]);
+{
+    if ($order->user_id !== $request->user()->id) {
+        return response()->json(['message' => 'Forbidden'], 403);
     }
+
+
+    $order->load('items', 'shipment', 'transactions');
+
+    return response()->json([
+        'data' => [
+            'id'           => $order->id,
+            'status'       => $order->status,
+            'order_date'   => $order->order_date,
+            'subtotal'     => $order->subtotal_amount,
+            'total'        => $order->total_amount,
+            'user_id'      => $order->user_id,   
+            'items'        => $order->items->map(function ($item) {
+                return [
+                    'id'         => $item->id,
+                    'quantity'   => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'book_id'    => $item->book_id, 
+                ];
+            }),
+            'shipment'     => $order->shipment,
+            'transactions'=> $order->transactions,
+        ]
+    ]);
+}
+
 
 
     // Direct create by payload {shipping_address, items:[{book_id, quantity}]}

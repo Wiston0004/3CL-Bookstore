@@ -51,5 +51,11 @@ return [
         'timeout' => (float) env('USERS_API_TIMEOUT', 5),
     ],
 
+    'orders_api' => [
+        'base' => env('ORDERS_API_BASE', 'http://127.0.0.1:8001/api/v1'),
+        'timeout' => (float) env('USERS_API_TIMEOUT', 5),
+
+    ],
+
 
 ];
