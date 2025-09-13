@@ -7,6 +7,7 @@ use App\Models\EventRegistration;
 use App\Jobs\AwardPointsForRegistration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class EventCustomerController extends Controller
 {
@@ -28,13 +29,14 @@ class EventCustomerController extends Controller
             'user_id'  => auth()->id(),
         ]);
 
-        // 🔹 Command Pattern: award points asynchronously
+        // 🔹 Award points asynchronously
         AwardPointsForRegistration::dispatch($registration->id);
 
-        // ✅ Try external API to get points first
         $userId = auth()->id();
         $points = 0;
+        $success = false;
 
+        // 🔹 Try EXTERNAL API first
         try {
             $base = rtrim(config('services.users_api.base'), '/');
             $timeout = (float) config('services.users_api.timeout', 5);
@@ -45,13 +47,32 @@ class EventCustomerController extends Controller
 
             if ($res->ok() && isset($res['data']['points'])) {
                 $points = (int) $res['data']['points'];
-            } else {
-                // fallback internal
-                $points = auth()->user()->points ?? 0;
+                $success = true;
             }
         } catch (\Throwable $e) {
-            // fallback internal
-            $points = auth()->user()->points ?? 0;
+            Log::warning("External API points fetch failed", [
+                'user_id' => $userId,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
+        // 🔹 If external fails → INTERNAL API
+        if (!$success) {
+            try {
+                $internalBase = url('/api/v1');
+                $res = Http::acceptJson()
+                    ->get("$internalBase/users/{$userId}/points");
+
+                if ($res->ok() && isset($res['data']['points'])) {
+                    $points = (int) $res['data']['points'];
+                }
+            } catch (\Throwable $e) {
+                Log::error("Internal API points fetch failed", [
+                    'user_id' => $userId,
+                    'error'   => $e->getMessage(),
+                ]);
+                $points = 0; // safe default
+            }
         }
 
         return redirect()
