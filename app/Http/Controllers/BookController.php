@@ -7,7 +7,7 @@ use App\Models\Book;
 use App\Models\Category;
 use App\Services\CatalogFacade;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http; // 👈 THIS is the correct import
+use Illuminate\Support\Facades\Http;
 /**
  * @method void authorize($ability, $arguments = [])
  */
