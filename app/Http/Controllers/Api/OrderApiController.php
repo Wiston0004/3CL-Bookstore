@@ -14,22 +14,7 @@ use Illuminate\Support\Facades\Http;
 
 class OrderApiController extends Controller
 {
-    private function fetchUser(int $id): ?array
-    {
-        $base = rtrim(config('services.users_api.base'), '/');
-        $res  = Http::acceptJson()->get("$base/users/$id");
-        return $res->ok() ? ($res->json()['data'] ?? $res->json()) : null;
-    }
 
-    /* ----------------------------
-     * Helper: fetch book via Book API
-     * ---------------------------- */
-    private function fetchBook(int $id): ?array
-    {
-        $base = rtrim(config('services.books_api.base'), '/');
-        $res  = Http::acceptJson()->get("$base/books/$id");
-        return $res->ok() ? ($res->json()['data'] ?? $res->json()) : null;
-    }
 
     /* ----------------------------
      * List orders (index)
@@ -78,35 +63,35 @@ class OrderApiController extends Controller
      * Show order detail
      * ---------------------------- */
     public function show(Request $request, Order $order)
-{
-    if ($order->user_id !== $request->user()->id) {
-        return response()->json(['message' => 'Forbidden'], 403);
+    {
+        if ($order->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+
+        $order->load('items', 'shipment', 'transactions');
+
+        return response()->json([
+            'data' => [
+                'id'           => $order->id,
+                'status'       => $order->status,
+                'order_date'   => $order->order_date,
+                'subtotal'     => $order->subtotal_amount,
+                'total'        => $order->total_amount,
+                'user_id'      => $order->user_id,   
+                'items'        => $order->items->map(function ($item) {
+                    return [
+                        'id'         => $item->id,
+                        'quantity'   => $item->quantity,
+                        'unit_price' => $item->unit_price,
+                        'book_id'    => $item->book_id, 
+                    ];
+                }),
+                'shipment'     => $order->shipment,
+                'transactions'=> $order->transactions,
+            ]
+        ]);
     }
-
-
-    $order->load('items', 'shipment', 'transactions');
-
-    return response()->json([
-        'data' => [
-            'id'           => $order->id,
-            'status'       => $order->status,
-            'order_date'   => $order->order_date,
-            'subtotal'     => $order->subtotal_amount,
-            'total'        => $order->total_amount,
-            'user_id'      => $order->user_id,   
-            'items'        => $order->items->map(function ($item) {
-                return [
-                    'id'         => $item->id,
-                    'quantity'   => $item->quantity,
-                    'unit_price' => $item->unit_price,
-                    'book_id'    => $item->book_id, 
-                ];
-            }),
-            'shipment'     => $order->shipment,
-            'transactions'=> $order->transactions,
-        ]
-    ]);
-}
 
 
 
