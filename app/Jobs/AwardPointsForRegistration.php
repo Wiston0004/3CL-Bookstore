@@ -9,6 +9,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AwardPointsForRegistration implements ShouldQueue
 {
@@ -31,8 +32,8 @@ class AwardPointsForRegistration implements ShouldQueue
             if ($points > 0 && !$reg->awarded_points) {
                 $success = false;
 
+                // 🔹 Try EXTERNAL API first
                 try {
-                    // 🔹 Try external API first
                     $base = rtrim(config('services.users_api.base'), '/');
                     $timeout = (float) config('services.users_api.timeout', 5);
 
@@ -46,15 +47,35 @@ class AwardPointsForRegistration implements ShouldQueue
                         $success = true;
                     }
                 } catch (\Throwable $e) {
-                    $success = false;
+                    Log::warning("External API award failed", [
+                        'user_id' => $user->id,
+                        'points'  => $points,
+                        'error'   => $e->getMessage(),
+                    ]);
                 }
 
+                // 🔹 If EXTERNAL fails → INTERNAL API
                 if (!$success) {
-                    // 🔹 Fallback to internal DB update
-                    $user->increment('points', $points);
+                    try {
+                        $internalBase = url('/api/v1'); // ✅ call your own API
+                        $res = Http::acceptJson()
+                            ->post("$internalBase/users/{$user->id}/points/add", [
+                                'points' => $points,
+                            ]);
+
+                        if ($res->ok()) {
+                            $success = true;
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error("Internal API award failed", [
+                            'user_id' => $user->id,
+                            'points'  => $points,
+                            'error'   => $e->getMessage(),
+                        ]);
+                    }
                 }
 
-                // mark registration as awarded regardless of method
+                // 🔹 Mark registration as awarded (regardless of success)
                 $reg->update([
                     'awarded_points' => $points,
                     'awarded_at'     => now(),
