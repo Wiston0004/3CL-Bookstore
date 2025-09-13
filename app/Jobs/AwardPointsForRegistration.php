@@ -8,8 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Http;   // ✅ for API calls
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class AwardPointsForRegistration implements ShouldQueue
 {
@@ -24,38 +23,42 @@ class AwardPointsForRegistration implements ShouldQueue
 
     public function handle(): void
     {
-        $reg = EventRegistration::with(['user', 'event'])->find($this->registrationId);
-
+        $reg = EventRegistration::find($this->registrationId);
         if ($reg && $reg->user && $reg->event) {
             $user   = $reg->user;
             $points = $reg->event->points_reward ?? 0;
 
             if ($points > 0 && !$reg->awarded_points) {
-                try {
-                    // ✅ Call your Points API as a web service
-                    $response = Http::asJson()->post(
-                        "http://localhost/3CL-Bookstore/public/api/v1/users/{$user->id}/points/add",
-                        ['points' => $points]
-                    );
+                $success = false;
 
-                    if ($response->successful()) {
-                        $reg->update([
-                            'awarded_points' => $points,
-                            'awarded_at'     => now(),
+                try {
+                    // 🔹 Try external API first
+                    $base = rtrim(config('services.users_api.base'), '/');
+                    $timeout = (float) config('services.users_api.timeout', 5);
+
+                    $res = Http::timeout($timeout)
+                        ->acceptJson()
+                        ->post("$base/users/{$user->id}/points/add", [
+                            'points' => $points,
                         ]);
-                    } else {
-                        Log::warning("Failed to award points via API", [
-                            'user_id'  => $user->id,
-                            'points'   => $points,
-                            'response' => $response->body(),
-                        ]);
+
+                    if ($res->ok()) {
+                        $success = true;
                     }
                 } catch (\Throwable $e) {
-                    Log::error("Error awarding points via API", [
-                        'user_id' => $user->id,
-                        'error'   => $e->getMessage(),
-                    ]);
+                    $success = false;
                 }
+
+                if (!$success) {
+                    // 🔹 Fallback to internal DB update
+                    $user->increment('points', $points);
+                }
+
+                // mark registration as awarded regardless of method
+                $reg->update([
+                    'awarded_points' => $points,
+                    'awarded_at'     => now(),
+                ]);
             }
         }
     }
