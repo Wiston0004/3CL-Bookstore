@@ -7,6 +7,8 @@ use App\Models\Book;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class InventoryController extends Controller
 {
@@ -19,9 +21,25 @@ class InventoryController extends Controller
         if ($req->type === 'restock' && $qty < 0) $qty = abs($qty);
         if ($req->type === 'sale' && $qty > 0)  $qty = -abs($qty);
 
+        // 🛡 Cache lock: prevent rapid duplicate requests (2s cooldown per user per book)
+        $lockKey = "adjusting:book:{$book->id}:user:" . auth()->id();
+        if (Cache::has($lockKey)) {
+            abort(429, 'Too many stock adjustments. Please wait a moment.');
+        }
+        Cache::put($lockKey, true, 2); // lock for 2 seconds
+
         DB::transaction(function () use ($book, $req, $qty) {
             $new = $book->stock + $qty;
-            if ($new < 0) abort(422,'Insufficient stock');
+            if ($new < 0) {
+                // 🛡 Log suspicious attempt
+                Log::warning("Blocked stock adjustment attempt", [
+                    'book_id' => $book->id,
+                    'user_id' => auth()->id(),
+                    'qty'     => $qty,
+                ]);
+                abort(422, 'Insufficient stock');
+            }
+
             $book->update(['stock' => $new]);
 
             $book->stockMovements()->create([
@@ -32,6 +50,6 @@ class InventoryController extends Controller
             ]);
         });
 
-        return back()->with('ok','Stock updated');
+        return back()->with('ok', 'Stock updated');
     }
 }

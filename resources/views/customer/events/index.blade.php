@@ -7,10 +7,18 @@
   <div class="grid grid-3">
     @forelse($events as $e)
       <div class="card">
-        <div>
-          <label>Event Image</label>
-          <input type="file" name="image" class="input">
-        </div>
+        {{-- Show event image if available --}}
+        @if($e->image)
+          <div class="mb-2">
+            <label>Event Image</label>
+            <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+              <img src="{{ asset('storage/events/'.$e->image) }}" 
+                   alt="Event image" 
+                   style="height:120px;border-radius:10px;border:1px solid #1c2346">
+              <span class="muted">Stored file: {{ $e->image }}</span>
+            </div>
+          </div>
+        @endif
 
         <h3>{{ $e->title }}</h3>
         <p class="muted">{{ $e->starts_at?->format('M d, Y H:i') }}</p>

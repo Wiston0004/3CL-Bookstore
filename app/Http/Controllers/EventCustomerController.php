@@ -12,10 +12,7 @@ class EventCustomerController extends Controller
 {
     public function index()
     {
-        $events = Event::whereNotIn('status', ['cancelled'])
-            ->orderBy('starts_at')
-            ->paginate(10);
-
+        $events = Event::whereNotIn('status', ['cancelled'])->orderBy('starts_at')->paginate(10);
         return view('customer.events.index', compact('events'));
     }
 
@@ -34,22 +31,26 @@ class EventCustomerController extends Controller
         // 🔹 Command Pattern: award points asynchronously
         AwardPointsForRegistration::dispatch($registration->id);
 
-        // ✅ Fetch updated points from API instead of DB
+        // ✅ Try external API to get points first
         $userId = auth()->id();
-        $base   = rtrim(config('services.users_api.base'), '/');
-        $url    = "$base/users/$userId/points";
-
         $points = 0;
-        try {
-            $res = Http::acceptJson()->get($url);
 
-            if ($res->ok()) {
-                $body   = $res->json();
-                $data   = $body['data'] ?? $body;
-                $points = (int) ($data['points'] ?? 0);
+        try {
+            $base = rtrim(config('services.users_api.base'), '/');
+            $timeout = (float) config('services.users_api.timeout', 5);
+
+            $res = Http::timeout($timeout)
+                ->acceptJson()
+                ->get("$base/users/{$userId}/points");
+
+            if ($res->ok() && isset($res['data']['points'])) {
+                $points = (int) $res['data']['points'];
+            } else {
+                // fallback internal
+                $points = auth()->user()->points ?? 0;
             }
         } catch (\Throwable $e) {
-            // fallback in case API fails
+            // fallback internal
             $points = auth()->user()->points ?? 0;
         }
 

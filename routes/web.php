@@ -156,7 +156,9 @@ Route::middleware(['auth'/*,'role:manager'*/])->group(function () {
 */
 Route::middleware(['auth','role:staff,manager'])->group(function () {
     Route::resource('books', BookController::class);
-    Route::post('books/{book}/stock',   [InventoryController::class, 'adjust'])->name('inventory.adjust');
+    Route::post('books/{book}/stock',   [InventoryController::class, 'adjust'])
+        ->name('inventory.adjust')
+        ->middleware('throttle:5,1');
     Route::get( 'books/{book}/history', [InventoryController::class, 'history'])->name('inventory.history');
 });
 

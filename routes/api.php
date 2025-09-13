@@ -62,7 +62,9 @@ Route::prefix('v1')->group(function () {
 
     // Inventory
     Route::get('/inventory/{book}/stock', [InventoryApiController::class, 'stock']);
-    Route::post('/books/{book}/decrement', [BookApiController::class, 'decrement']);
+    Route::post('/books/{book}/decrement', [BookApiController::class, 'decrement'])
+        ->middleware('throttle:5,1');
+;
 
     
 
@@ -142,5 +144,5 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
 Route::prefix('v1')->group(function () {
     Route::get('users/{user}/points', [PointsApiController::class, 'show']);
     Route::post('users/{user}/points/redeem', [PointsApiController::class, 'redeem']);
-    Route::post('users/{user}/points/add', [PointsApiController::class, 'redeem']); 
+    Route::post('users/{user}/points/add', [PointsApiController::class, 'add']); 
 });
