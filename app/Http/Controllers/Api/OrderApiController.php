@@ -9,27 +9,118 @@ use App\Http\Resources\OrderResource;
 use App\Models\{Order, OrderItem, CartItem, Shipment, Book, TransactionHistory};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+
 
 class OrderApiController extends Controller
 {
+    private function fetchUser(int $id): ?array
+    {
+        $base = rtrim(config('services.users_api.base'), '/');
+        $res  = Http::acceptJson()->get("$base/users/$id");
+        return $res->ok() ? ($res->json()['data'] ?? $res->json()) : null;
+    }
+
+    /* ----------------------------
+     * Helper: fetch book via Book API
+     * ---------------------------- */
+    private function fetchBook(int $id): ?array
+    {
+        $base = rtrim(config('services.books_api.base'), '/');
+        $res  = Http::acceptJson()->get("$base/books/$id");
+        return $res->ok() ? ($res->json()['data'] ?? $res->json()) : null;
+    }
+
+    /* ----------------------------
+     * List orders (index)
+     * ---------------------------- */
     public function index(Request $request)
     {
-        $orders = Order::with('items.book')
-            ->where('user_id', $request->user()->id)
+        $orders = Order::where('user_id', $request->user()->id)
             ->orderByDesc('order_date')
             ->paginate(10);
 
-        return OrderResource::collection($orders);
+        $data = $orders->getCollection()->map(function ($order) {
+            $order->load('items', 'shipment', 'transactions'); // only local relations
+
+            // Hydrate user from User API
+            $user = $this->fetchUser($order->user_id);
+
+            // Hydrate books for each order item
+            $items = $order->items->map(function ($item) {
+                $book = $this->fetchBook($item->book_id);
+                return [
+                    'id'         => $item->id,
+                    'quantity'   => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'book'       => $book,
+                ];
+            });
+
+            return [
+                'id'          => $order->id,
+                'status'      => $order->status,
+                'order_date'  => $order->order_date,
+                'subtotal'    => $order->subtotal_amount,
+                'total'       => $order->total_amount,
+                'user'        => $user,
+                'items'       => $items,
+                'shipment'    => $order->shipment,
+                'transactions'=> $order->transactions,
+
+            ];
+        });
+
+        // Keep pagination meta
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'current_page' => $orders->currentPage(),
+                'last_page'    => $orders->lastPage(),
+                'per_page'     => $orders->perPage(),
+                'total'        => $orders->total(),
+            ],
+        ]);
     }
 
+    /* ----------------------------
+     * Show order detail
+     * ---------------------------- */
     public function show(Request $request, Order $order)
     {
         if ($order->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
-        $order->load('items.book','shipment');
-        return new OrderResource($order);
+
+        $order->load('items', 'shipment', 'transactions'); 
+
+        $user = $this->fetchUser($order->user_id);
+
+        $items = $order->items->map(function ($item) {
+            $book = $this->fetchBook($item->book_id);
+            return [
+                'id'         => $item->id,
+                'quantity'   => $item->quantity,
+                'unit_price' => $item->unit_price,
+                'book'       => $book,
+            ];
+        });
+
+        return response()->json([
+            'data' => [
+                'id'          => $order->id,
+                'status'      => $order->status,
+                'order_date'  => $order->order_date,
+                'subtotal'    => $order->subtotal_amount,
+                'total'       => $order->total_amount,
+                'user'        => $user,
+                'items'       => $items,
+                'shipment'    => $order->shipment,
+                'transactions'=> $order->transactions,
+            ]
+        ]);
     }
+
 
     // Direct create by payload {shipping_address, items:[{book_id, quantity}]}
    public function store(StoreOrderRequest $request)
