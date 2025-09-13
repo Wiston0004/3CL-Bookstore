@@ -62,7 +62,9 @@ Route::prefix('v1')->group(function () {
 
     // Inventory
     Route::get('/inventory/{book}/stock', [InventoryApiController::class, 'stock']);
-    Route::post('/books/{book}/decrement', [BookApiController::class, 'decrement']);
+    Route::post('/books/{book}/decrement', [BookApiController::class, 'decrement'])
+        ->middleware('throttle:5,1');
+;
 
     
 

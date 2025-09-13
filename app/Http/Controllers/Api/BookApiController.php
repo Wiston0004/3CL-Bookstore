@@ -7,6 +7,8 @@ use App\Models\Book;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB; // ✅ add this line
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class BookApiController extends Controller
 {
@@ -187,42 +189,66 @@ class BookApiController extends Controller
  * API: POST /api/v1/books/{book}/decrement
  * Body JSON: { "quantity": 3 }
  */
-public function decrement(Request $request, Book $book)
-{
-    $data = $request->validate([
-        'quantity' => ['required','integer','min:1'],
-    ]);
+    public function decrement(Request $request, Book $book)
+    {
+        $data = $request->validate([
+            'quantity' => ['required','integer','min:1'],
+        ]);
 
-    $qty = (int) $data['quantity'];
+        $qty = (int) $data['quantity'];
 
-    // Wrap in transaction to avoid race conditions
-    DB::transaction(function () use ($book, $qty) {
-        $newStock = $book->stock - $qty;
-
-        if ($newStock < 0) {
-            abort(422, 'Insufficient stock');
+        $lockKey = "api:decrement:book:{$book->id}:ip:" . $request->ip();
+        if (Cache::has($lockKey)) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Too many requests. Please wait a moment.',
+            ], 429);
         }
+        Cache::put($lockKey, true, 2);
 
-        $book->update(['stock' => $newStock]);
+        try {
+            DB::transaction(function () use ($book, $qty) {
+                $newStock = $book->stock - $qty;
 
-        // Optional: log stock movement if relation exists
-        if (method_exists($book, 'stockMovements')) {
-            $book->stockMovements()->create([
-                'quantity_change' => -$qty,
-                'reason'          => 'API decrement',
+                if ($newStock < 0) {
+                    Log::warning("API stock decrement blocked", [
+                        'book_id' => $book->id,
+                        'qty'     => $qty,
+                    ]);
+
+                    abort(422, 'Insufficient stock');
+                }
+
+                $book->update(['stock' => $newStock]);
+
+                if (method_exists($book, 'stockMovements')) {
+                    $book->stockMovements()->create([
+                        'quantity_change' => -$qty,
+                        'reason'          => 'API decrement',
+                    ]);
+                }
+            });
+
+            $book->refresh();
+
+            return response()->json([
+                'ok'   => true,
+                'data' => [
+                    'book_id' => $book->id,
+                    'stock'   => (int) $book->stock,
+                ],
             ]);
+        } catch (\Exception $e) {
+            Log::error("API decrement error", [
+                'book_id' => $book->id,
+                'qty'     => $qty,
+                'error'   => $e->getMessage(),
+            ]);
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Stock update failed. Please try again later.',
+            ], 500);
         }
-    });
-
-    $book->refresh();
-
-    return response()->json([
-        'ok'   => true,
-        'data' => [
-            'book_id' => $book->id,
-            'stock'   => (int) $book->stock,
-        ],
-    ]);
-}
+    }
 
 }
